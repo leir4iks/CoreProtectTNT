@@ -3,6 +3,8 @@
 [![Download](https://img.shields.io/badge/Download-Releases-blue?&style=for-the-badge&colorA=19201a&colorB=298046)](https://github.com/leir4iks/CoreProtectTNT-updated/releases/)
 
 en:
+
+
 A fork of CoreProtectTNT (a CoreProtect addon) that no longer logs Wind Charge events.
 A CoreProtect addon allow you log the TNT (or TNTMinecart), Creeper, Ghast, Bed and even ItemFrame breaks!
 
@@ -12,6 +14,8 @@ The old version of CoreProtectTNT misinterpreted Wind Charge impacts as explosio
 Updated by: leir4iks &&& danikovdev
 
 ru:
+
+
 Это модифицированная версия CoreProtectTNT (дополнение для CoreProtect), которая больше не регистрирует события, связанные с ветряным зарядом (Wind Charge). 
 Дополнение CoreProtect позволяет регистрировать взрывы динамита (TNT и вагонеток с динамитом), криперов, гастов, разрушение кроватей и даже удаление предметов из рамок!
 
