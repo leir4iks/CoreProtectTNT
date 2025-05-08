@@ -4,3 +4,4 @@ version: ${version}
 api-version: 1.16
 depend:
   - CoreProtect
+authors: [GhostChu, leir4iks, danikovdev]
