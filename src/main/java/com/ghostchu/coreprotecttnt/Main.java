@@ -339,7 +339,6 @@ public class Main extends JavaPlugin implements Listener {
                      this.api.logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), (BlockData)null);
                   }
                }
-
             }
          }
       }
@@ -423,7 +422,7 @@ public class Main extends JavaPlugin implements Listener {
             return;
          }
 
-         String sourceFromCache = (String)this.probablyCache.getIfPresent(e.getIgnitingEntity());
+         sourceFromCache = (String)this.probablyCache.getIfPresent(e.getIgnitingEntity());
          if (sourceFromCache != null) {
             this.probablyCache.put(e.getBlock().getLocation(), sourceFromCache);
             return;
@@ -508,6 +507,8 @@ public class Main extends JavaPlugin implements Listener {
    public void onExplode(EntityExplodeEvent e) {
       Entity entity = e.getEntity();
       List<Block> blockList = e.blockList();
+      Block block; // Объявляем переменную block один раз в начале метода
+      
       if (!blockList.isEmpty()) {
          String entityType = e.getEntityType().name().toLowerCase(Locale.ROOT);
          if (!entityType.contains("wind_charge") && !entityType.contains("breeze_wind_charge")) {
@@ -518,7 +519,6 @@ public class Main extends JavaPlugin implements Listener {
                String track = (String)this.probablyCache.getIfPresent(entity);
                Cache var10001;
                if (!(entity instanceof TNTPrimed) && !(entity instanceof EnderCrystal)) {
-                  Block block;
                   Iterator var28;
                   if (entity instanceof Creeper) {
                      Creeper creeper = (Creeper)entity;
@@ -526,7 +526,7 @@ public class Main extends JavaPlugin implements Listener {
                         Iterator var30 = blockList.iterator();
 
                         while(var30.hasNext()) {
-                           Block block = (Block)var30.next();
+                           block = (Block)var30.next();
                            this.api.logRemoval(track, block.getLocation(), block.getType(), block.getBlockData());
                         }
                      } else {
@@ -585,7 +585,7 @@ public class Main extends JavaPlugin implements Listener {
                               Iterator var19 = blockList.iterator();
 
                               while(var19.hasNext()) {
-                                 Block block = (Block)var19.next();
+                                 block = (Block)var19.next();
                                  this.api.logRemoval("#tntminecart-" + (String)entry.getValue(), block.getLocation(), block.getType(), block.getBlockData());
                                  this.probablyCache.put(block.getLocation(), "#tntminecart-" + (String)entry.getValue());
                               }
@@ -603,7 +603,7 @@ public class Main extends JavaPlugin implements Listener {
                            Iterator var34 = blockList.iterator();
 
                            while(var34.hasNext()) {
-                              Block block = (Block)var34.next();
+                              block = (Block)var34.next();
                               this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
                               this.probablyCache.put(block.getLocation(), reason);
                            }
@@ -655,7 +655,7 @@ public class Main extends JavaPlugin implements Listener {
                      Iterator var11 = blockList.iterator();
 
                      while(var11.hasNext()) {
-                        Block block = (Block)var11.next();
+                        block = (Block)var11.next();
                         this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
                         this.probablyCache.put(block.getLocation(), reason);
                      }
