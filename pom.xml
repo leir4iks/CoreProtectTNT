@@ -6,7 +6,7 @@
 
     <groupId>com.leir4iks</groupId>
     <artifactId>CoreProtectTNT</artifactId>
-    <version>2.3.1</version>
+    <version>3.0.1</version>
 
     <repositories>
         <repository>
