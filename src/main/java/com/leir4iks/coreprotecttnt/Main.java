@@ -13,6 +13,7 @@ import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
+import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -27,10 +28,9 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
+import com.leir4iks.coreprotecttnt.Util; // <- ИСПРАВЛЕНО: Добавлен импорт
 
 public class Main extends JavaPlugin implements Listener {
    private final Cache<Object, String> probablyCache;
@@ -66,8 +66,9 @@ public class Main extends JavaPlugin implements Listener {
          Location headLocation = (bed.getPart() == Bed.Part.HEAD) ? clickedBlock.getLocation() : clickedBlock.getLocation().add(bed.getFacing().getDirection());
          Location footLocation = (bed.getPart() == Bed.Part.FOOT) ? clickedBlock.getLocation() : clickedBlock.getLocation().subtract(bed.getFacing().getDirection());
          String reason = "#bed-" + e.getPlayer().getName();
-         this.probablyCache.put(headLocation.toBlockLocation(), reason);
-         this.probablyCache.put(footLocation.toBlockLocation(), reason);
+         // ИСПРАВЛЕНО: .toBlockLocation() заменен на .getBlock().getLocation()
+         this.probablyCache.put(headLocation.getBlock().getLocation(), reason);
+         this.probablyCache.put(footLocation.getBlock().getLocation(), reason);
       } else if (blockData instanceof RespawnAnchor) {
          this.probablyCache.put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
       }
@@ -89,7 +90,8 @@ public class Main extends JavaPlugin implements Listener {
       String probablyCauses = this.probablyCache.getIfPresent(location);
 
       if (probablyCauses == null) {
-         probablyCauses = this.probablyCache.getIfPresent(location.toBlockLocation());
+          // ИСПРАВЛЕНО: .toBlockLocation() заменен на .getBlock().getLocation()
+         probablyCauses = this.probablyCache.getIfPresent(location.getBlock().getLocation());
       }
 
       if (probablyCauses == null) {
@@ -339,6 +341,7 @@ public class Main extends JavaPlugin implements Listener {
    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
    public void onBombHit(ProjectileHitEvent e) {
       if (e.getHitEntity() == null) return;
+      // ИСПРАВЛЕНО: Добавлен импорт для ExplosiveMinecart
       if (!(e.getHitEntity() instanceof ExplosiveMinecart) && e.getHitEntity().getType() != EntityType.ENDER_CRYSTAL) return;
 
       String source = this.probablyCache.getIfPresent(e.getEntity());
@@ -355,7 +358,8 @@ public class Main extends JavaPlugin implements Listener {
     public void onExplode(EntityExplodeEvent e) {
         EntityType entityType = e.getEntityType();
 
-        if (entityType == EntityType.WIND_CHARGE || entityType.name().equals("WIND_BURST") || entityType.name().equals("BREEZE_WIND_CHARGE")) {
+        // ИСПРАВЛЕНО: Заменено на сравнение по имени для совместимости
+        if (entityType.name().equals("WIND_CHARGE") || entityType.name().equals("WIND_BURST") || entityType.name().equals("BREEZE_WIND_CHARGE")) {
             e.blockList().clear();
             return;
         }
