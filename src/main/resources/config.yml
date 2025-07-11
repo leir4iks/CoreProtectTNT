@@ -1,23 +1,44 @@
+# Настройки логирования взрывов блоков (Кровати, Якоря возрождения)
 block-explosion:
-  # Should we log and trace this type of explosion?
+  # Включить логирование этого типа взрывов?
   enable: true
-  # Cancel the explosion if its source can't be tracked.
+  # Отменять взрыв, если его источник не удалось отследить.
   disable-unknown: false
-  # The message that will be broadcast to players.
-  alert: "&cAn explosion near you has been blocked because it was caused by an unknown object."
+  # Сообщение, которое будет отправлено игрокам поблизости, если взрыв отменен.
+  alert: "&cВзрыв рядом с вами был заблокирован, так как его источник неизвестен."
+
+# Настройки логирования взрывов от сущностей (TNT, Криперы, и т.д.)
 entity-explosion:
+  # Включить логирование этого типа взрывов?
   enable: true
+  # Отменять взрыв, если его источник не удалось отследить.
   disable-unknown: false
-  alert: "&cAn explosion near you has been blocked because that caused by unknown object."
+  # Сообщение, которое будет отправлено игрокам поблизости, если взрыв отменен.
+  alert: "&cВзрыв рядом с вами был заблокирован, так как его источник неизвестен."
+
+# Настройки логирования огня
 fire:
-  enable: false
+  # Включить логирование распространения огня?
+  enable: true
+  # Отменять распространение огня, если его источник не удалось отследить.
   disable-unknown: false
-  alert: "&cAn fire spreading/burning has been blocked because that caused by unknown object."
+  # Сообщение, которое будет отправлено игрокам поблизости, если огонь заблокирован.
+  alert: "&cРаспространение огня было заблокировано, так как его источник неизвестен."
+
+# Настройки логирования рамок
 itemframe:
+  # Включить логирование взаимодействий с рамками?
   enable: true
+  # Отменять уничтожение рамки, если его источник не удалось отследить.
   disable-unknown: false
-  alert: "&cBlocked item-frame destroy because that caused by unknown object."
+  # Сообщение, которое будет отправлено игрокам поблизости, если уничтожение заблокировано.
+  alert: "&cУничтожение рамки было заблокировано, так как его источник неизвестен."
+
+# Настройки логирования подвесных сущностей (Картины)
 hanging:
+  # Включить логирование уничтожения подвесных сущностей?
   enable: true
+  # Отменять уничтожение, если его источник не удалось отследить.
   disable-unknown: false
-  alert: "&cBlocked hanging destroy because that caused by unknown object."
+  # Сообщение, которое будет отправлено игрокам поблизости, если уничтожение заблокировано.
+  alert: "&cУничтожение объекта было заблокировано, так как его источник неизвестен."
