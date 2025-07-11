@@ -191,7 +191,7 @@ public class Main extends JavaPlugin implements Listener {
           if (reason != null) {
               this.probablyCache.put(tntPrimed, reason);
           }
-      } else if (type == EntityType.HOPPER_MINECART) {
+      } else if (type == EntityType.MINECART_HOPPER) {
             Location spawnLocation = e.getLocation();
             Player closestPlayer = null;
             double closestDistance = Double.MAX_VALUE;
@@ -206,7 +206,7 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
 
-            if (closestPlayer != null && closestDistance < 25) { // 5*5=25
+            if (closestPlayer != null && closestDistance < 25) { 
                 this.probablyCache.put(e.getEntity(), closestPlayer.getName());
             }
       }
