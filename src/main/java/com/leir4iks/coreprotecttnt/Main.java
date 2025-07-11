@@ -57,10 +57,8 @@ public class Main extends JavaPlugin implements Listener {
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
       if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-
       Block clickedBlock = e.getClickedBlock();
       if (clickedBlock == null) return;
-
       BlockData blockData = clickedBlock.getBlockData();
       if (blockData instanceof Bed) {
          Bed bed = (Bed) blockData;
@@ -85,14 +83,11 @@ public class Main extends JavaPlugin implements Listener {
    public void onBlockExplode(BlockExplodeEvent e) {
       ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "block-explosion");
       if (!section.getBoolean("enable", true)) return;
-
       Location location = e.getBlock().getLocation();
       String probablyCauses = this.probablyCache.getIfPresent(location);
-
       if (probablyCauses == null) {
          probablyCauses = this.probablyCache.getIfPresent(location.getBlock().getLocation());
       }
-
       if (probablyCauses == null) {
          if (section.getBoolean("disable-unknown", true)) {
             e.blockList().clear();
@@ -100,7 +95,6 @@ public class Main extends JavaPlugin implements Listener {
          }
          return;
       }
-
       for (Block block : e.blockList()) {
          this.api.logRemoval(probablyCauses, block.getLocation(), block.getType(), block.getBlockData());
       }
@@ -119,21 +113,16 @@ public class Main extends JavaPlugin implements Listener {
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onClickItemFrame(PlayerInteractEntityEvent e) {
       if (!(e.getRightClicked() instanceof ItemFrame)) return;
-
       ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "itemframe");
       if (!section.getBoolean("enable", true)) return;
-
       ItemFrame itemFrame = (ItemFrame) e.getRightClicked();
       Player player = e.getPlayer();
       String playerName = player.getName();
-
       this.api.logInteraction(playerName, itemFrame.getLocation());
-
       boolean hasItem = itemFrame.getItem().getType() != Material.AIR;
       ItemStack mainHandItem = player.getInventory().getItemInMainHand();
       ItemStack offHandItem = player.getInventory().getItemInOffHand();
       boolean placingItem = !mainHandItem.getType().isAir() || !offHandItem.getType().isAir();
-
       if (!hasItem && placingItem) {
          ItemStack putIn = !mainHandItem.getType().isAir() ? mainHandItem : offHandItem;
          this.api.logPlacement("#additem-" + playerName, itemFrame.getLocation(), putIn.getType(), null);
@@ -147,24 +136,20 @@ public class Main extends JavaPlugin implements Listener {
    public void onProjectileLaunch(ProjectileLaunchEvent e) {
       Projectile projectile = e.getEntity();
       if (projectile.getShooter() == null) return;
-
       String shooterName = "world";
       if (projectile.getShooter() instanceof Player) {
          shooterName = ((Player) projectile.getShooter()).getName();
       } else if (projectile.getShooter() instanceof Entity) {
          shooterName = ((Entity) projectile.getShooter()).getName();
       }
-
       this.probablyCache.put(projectile, shooterName);
    }
 
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onIgniteTNT(EntitySpawnEvent e) {
       if (!(e.getEntity() instanceof TNTPrimed)) return;
-
       TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
       Entity source = tntPrimed.getSource();
-
       if (source != null) {
          String sourceFromCache = this.probablyCache.getIfPresent(source);
          if (sourceFromCache != null) {
@@ -176,7 +161,6 @@ public class Main extends JavaPlugin implements Listener {
             return;
          }
       }
-
       Location blockLocation = tntPrimed.getLocation().getBlock().getLocation();
       String reason = this.probablyCache.getIfPresent(blockLocation);
       if (reason != null) {
@@ -187,10 +171,8 @@ public class Main extends JavaPlugin implements Listener {
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onHangingBreak(HangingBreakEvent e) {
       if (e.getCause() == HangingBreakEvent.RemoveCause.ENTITY) return;
-
       ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "hanging");
       if (!section.getBoolean("enable", true)) return;
-
       Location hangingLocation = e.getEntity().getLocation().getBlock().getLocation();
       String reason = this.probablyCache.getIfPresent(hangingLocation);
       if (reason == null) {
@@ -200,11 +182,9 @@ public class Main extends JavaPlugin implements Listener {
          }
          return;
       }
-
       String materialName = e.getEntity().getType().name();
       Material material = Material.matchMaterial(materialName);
       String cause = "#" + e.getCause().name() + "-" + reason;
-
       if (material != null) {
          this.api.logRemoval(cause, hangingLocation, material, null);
       } else {
@@ -215,7 +195,6 @@ public class Main extends JavaPlugin implements Listener {
    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
    public void onEndCrystalHit(EntityDamageByEntityEvent e) {
       if (!(e.getEntity() instanceof EnderCrystal)) return;
-
       String damagerName = null;
       if (e.getDamager() instanceof Player) {
          damagerName = e.getDamager().getName();
@@ -228,7 +207,6 @@ public class Main extends JavaPlugin implements Listener {
             }
          }
       }
-
       if (damagerName != null) {
          this.probablyCache.put(e.getEntity(), damagerName);
       }
@@ -237,13 +215,10 @@ public class Main extends JavaPlugin implements Listener {
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onHangingHit(HangingBreakByEntityEvent e) {
        if (!(e.getEntity() instanceof ItemFrame) && !(e.getEntity() instanceof Painting)) return;
-
        ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), e.getEntity() instanceof ItemFrame ? "itemframe" : "hanging");
        if (!section.getBoolean("enable", true)) return;
-
        Hanging hanging = e.getEntity();
        String removerName = null;
-
        if (e.getRemover() instanceof Player) {
            removerName = e.getRemover().getName();
        } else if (e.getRemover() != null) {
@@ -251,13 +226,11 @@ public class Main extends JavaPlugin implements Listener {
            if (removerName == null) {
                removerName = "#" + e.getRemover().getType().name().toLowerCase(Locale.ROOT);
            } else {
-              // ИСПРАВЛЕНО: Предотвращаем двойное добавление префикса
                if (!removerName.startsWith("#")) {
                    removerName = "#" + e.getRemover().getType().name().toLowerCase(Locale.ROOT) + "-" + removerName;
                }
            }
        }
-
        if (removerName == null) {
            if (section.getBoolean("disable-unknown")) {
                e.setCancelled(true);
@@ -265,10 +238,8 @@ public class Main extends JavaPlugin implements Listener {
            }
            return;
        }
-       
        Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;
        api.logRemoval(removerName, hanging.getLocation(), material, null);
-
        if (hanging instanceof ItemFrame) {
            ItemFrame itemFrame = (ItemFrame) hanging;
            if (itemFrame.getItem() != null && itemFrame.getItem().getType() != Material.AIR) {
@@ -280,11 +251,9 @@ public class Main extends JavaPlugin implements Listener {
    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
    public void onEntityHitByProjectile(EntityDamageByEntityEvent e) {
       if (!(e.getDamager() instanceof Projectile)) return;
-
       Projectile projectile = (Projectile) e.getDamager();
       ProjectileSource shooter = projectile.getShooter();
       if (shooter == null) return;
-
       String sourceName = this.probablyCache.getIfPresent(projectile);
       if (sourceName == null) {
          if (shooter instanceof Player) {
@@ -293,7 +262,6 @@ public class Main extends JavaPlugin implements Listener {
             sourceName = ((Entity) shooter).getName();
          }
       }
-
       if (sourceName != null) {
          this.probablyCache.put(e.getEntity(), sourceName);
       }
@@ -303,7 +271,6 @@ public class Main extends JavaPlugin implements Listener {
    public void onBlockIgnite(BlockIgniteEvent e) {
       ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "fire");
       if (!section.getBoolean("enable", true)) return;
-
       String sourceName = null;
       if (e.getPlayer() != null) {
          sourceName = e.getPlayer().getName();
@@ -315,9 +282,7 @@ public class Main extends JavaPlugin implements Listener {
       } else if (e.getIgnitingBlock() != null) {
          sourceName = this.probablyCache.getIfPresent(e.getIgnitingBlock().getLocation());
       }
-      
       if (sourceName != null) {
-         // ИСПРАВЛЕНО: Предотвращаем дублирование префиксов при распространении огня
          if (sourceName.startsWith("#fire-")) {
             this.probablyCache.put(e.getBlock().getLocation(), sourceName);
          } else {
@@ -332,13 +297,10 @@ public class Main extends JavaPlugin implements Listener {
    public void onBlockBurn(BlockBurnEvent e) {
       ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "fire");
       if (!section.getBoolean("enable", true)) return;
-
       if (e.getIgnitingBlock() == null) return;
-      
       String sourceFromCache = this.probablyCache.getIfPresent(e.getIgnitingBlock().getLocation());
       if (sourceFromCache != null) {
          this.probablyCache.put(e.getBlock().getLocation(), sourceFromCache);
-          // ИСПРАВЛЕНО: Используем причину из кеша напрямую, если она уже содержит #fire-
          String reason = sourceFromCache.startsWith("#") ? sourceFromCache : "#fire-" + sourceFromCache;
          this.api.logRemoval(reason, e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
       } else if (section.getBoolean("disable-unknown", true)) {
@@ -351,88 +313,92 @@ public class Main extends JavaPlugin implements Listener {
    public void onBombHit(ProjectileHitEvent e) {
       if (e.getHitEntity() == null) return;
       if (!(e.getHitEntity() instanceof ExplosiveMinecart) && e.getHitEntity().getType() != EntityType.ENDER_CRYSTAL) return;
-
       String source = this.probablyCache.getIfPresent(e.getEntity());
       if (source == null && e.getEntity().getShooter() instanceof Player) {
          source = ((Player) e.getEntity().getShooter()).getName();
       }
-
       if (source != null) {
          this.probablyCache.put(e.getHitEntity(), source);
       }
    }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onExplode(EntityExplodeEvent e) {
-        EntityType entityType = e.getEntityType();
+   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+   public void onExplode(EntityExplodeEvent e) {
+       Entity entity = e.getEntity();
+       EntityType entityType = e.getEntityType();
+       String entityName = entityType.name();
 
-        // ИСПРАВЛЕНИЕ #3: Возвращаем ванильное поведение для зарядов ветра
-        String entityName = entityType.name();
-        if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
-            // Используем итератор для безопасного удаления элементов из списка
-            Iterator<Block> iterator = e.blockList().iterator();
-            while (iterator.hasNext()) {
-                Block block = iterator.next();
-                // Разрешаем взаимодействие только с дверьми и люками
-                if (!Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType())) {
-                    iterator.remove();
-                }
-            }
-            return;
-        }
+       if (entity instanceof Player) {
+           String reason = "#mace-" + entity.getName();
+           for (Block block : e.blockList()) {
+               this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+           }
+           return;
+       }
 
-        if (e.blockList().isEmpty()) return;
+       if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
+           String shooterName = this.probablyCache.getIfPresent(entity);
+           Iterator<Block> iterator = e.blockList().iterator();
+           while (iterator.hasNext()) {
+               Block block = iterator.next();
+               if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+                   if (shooterName != null) {
+                       this.api.logInteraction(shooterName, block.getLocation());
+                   }
+               } else {
+                   iterator.remove();
+               }
+           }
+           return;
+       }
 
-        ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "entity-explosion");
-        if (!section.getBoolean("enable", true)) return;
+       if (e.blockList().isEmpty()) return;
 
-        Entity entity = e.getEntity();
-        String track = this.probablyCache.getIfPresent(entity);
+       ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "entity-explosion");
+       if (!section.getBoolean("enable", true)) return;
 
-        // ИСПРАВЛЕНИЕ #2: Предотвращаем дублирование префиксов
-        if (track == null) {
-            // Логика определения виновника, если его нет в кеше
-            if (entity instanceof Creeper) {
-                LivingEntity target = ((Creeper) entity).getTarget();
-                if (target != null) {
-                    track = "#creeper-" + target.getName();
-                }
-            } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent) {
-                Entity damager = ((EntityDamageByEntityEvent) entity.getLastDamageCause()).getDamager();
-                String damagerTrack = this.probablyCache.getIfPresent(damager);
-                if (damagerTrack != null) {
-                    // Если у "виновника" уже есть префикс, не добавляем новый
-                    if (damagerTrack.startsWith("#")) {
-                        track = damagerTrack;
-                    } else {
-                        track = "#" + damager.getType().name().toLowerCase(Locale.ROOT) + "-" + damagerTrack;
-                    }
-                } else {
-                    track = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
-                }
-            }
-        }
-        
-        if (track == null) {
-            if (section.getBoolean("disable-unknown")) {
-                e.blockList().clear();
-                Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
-            }
-            return;
-        }
+       String track = this.probablyCache.getIfPresent(entity);
 
-        // Формируем конечную причину, только если у track еще нет префикса
-        String reason;
-        if (track.startsWith("#")) {
-            reason = track;
-        } else {
-            reason = "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
-        }
+       if (track == null) {
+           if (entity instanceof Creeper) {
+               LivingEntity target = ((Creeper) entity).getTarget();
+               if (target != null) {
+                   track = "#creeper-" + target.getName();
+               }
+           } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent) {
+               Entity damager = ((EntityDamageByEntityEvent) entity.getLastDamageCause()).getDamager();
+               String damagerTrack = this.probablyCache.getIfPresent(damager);
+               if (damagerTrack != null) {
+                   if (damagerTrack.startsWith("#")) {
+                       track = damagerTrack;
+                   } else {
+                       track = "#" + damager.getType().name().toLowerCase(Locale.ROOT) + "-" + damagerTrack;
+                   }
+               } else {
+                   track = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
+               }
+           }
+       }
 
-        for (Block block : e.blockList()) {
-            this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
-            this.probablyCache.put(block.getLocation(), reason);
-        }
-        this.probablyCache.invalidate(entity);
-    }
+       if (track == null) {
+           if (section.getBoolean("disable-unknown")) {
+               e.blockList().clear();
+               Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
+           }
+           return;
+       }
+
+       String reason;
+       if (track.startsWith("#")) {
+           reason = track;
+       } else {
+           reason = "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
+       }
+
+       for (Block block : e.blockList()) {
+           this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+           this.probablyCache.put(block.getLocation(), reason);
+       }
+       this.probablyCache.invalidate(entity);
+   }
 }
