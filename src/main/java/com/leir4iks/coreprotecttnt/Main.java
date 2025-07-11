@@ -14,8 +14,8 @@ import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
-import org.bukkit.entity.minecart.HopperMinecart;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
+import org.bukkit.entity.minecart.HopperMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -38,10 +38,12 @@ import java.util.concurrent.TimeUnit;
 
 public class Main extends JavaPlugin implements Listener {
    private final Cache<Object, String> probablyCache;
+   private final Cache<String, Boolean> minecartPlacerCache;
    private CoreProtectAPI api;
 
    public Main() {
       this.probablyCache = CacheBuilder.newBuilder().expireAfterAccess(1L, TimeUnit.HOURS).concurrencyLevel(4).maximumSize(50000L).build();
+      this.minecartPlacerCache = CacheBuilder.newBuilder().expireAfterWrite(250, TimeUnit.MILLISECONDS).build();
    }
 
    @Override
@@ -59,23 +61,78 @@ public class Main extends JavaPlugin implements Listener {
 
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onHopperMove(InventoryMoveItemEvent e) {
-       InventoryHolder initiatorHolder = e.getInitiator().getHolder();
-       if (!(initiatorHolder instanceof HopperMinecart)) {
-           return;
-       }
-
-       HopperMinecart minecart = (HopperMinecart) initiatorHolder;
-       String ownerName = this.probablyCache.getIfPresent(minecart);
-
-       if (ownerName != null) {
-           Location sourceLocation = e.getSource().getLocation();
-           if (sourceLocation != null) {
-               String reason = "#hopper-" + ownerName;
-               api.logRemoval(reason, sourceLocation, e.getItem().getType(), null);
-           }
-       }
+      InventoryHolder initiatorHolder = e.getInitiator().getHolder();
+      if (!(initiatorHolder instanceof HopperMinecart)) {
+         return;
+      }
+      HopperMinecart minecart = (HopperMinecart) initiatorHolder;
+      String ownerName = this.probablyCache.getIfPresent(minecart);
+      if (ownerName != null) {
+         Location sourceLocation = e.getSource().getLocation();
+         if (sourceLocation != null) {
+            String reason = "#hopper-" + ownerName;
+            api.logRemoval(reason, sourceLocation, e.getItem().getType(), null);
+         }
+      }
    }
 
+   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+   public void onPlayerAttemptPlaceMinecart(PlayerInteractEvent e) {
+      if (e.getAction() != Action.RIGHT_CLICK_BLOCK) {
+         return;
+      }
+      ItemStack item = e.getItem();
+      Block clickedBlock = e.getClickedBlock();
+      if (item != null && item.getType() == Material.HOPPER_MINECART && clickedBlock != null && Tag.RAILS.isTagged(clickedBlock.getType())) {
+         this.minecartPlacerCache.put(e.getPlayer().getName(), true);
+      }
+   }
+
+   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+   public void onEntitySpawn(EntitySpawnEvent e) {
+      EntityType type = e.getEntityType();
+      Entity entity = e.getEntity();
+      if (type == EntityType.PRIMED_TNT) {
+         TNTPrimed tntPrimed = (TNTPrimed) entity;
+         Entity source = tntPrimed.getSource();
+         if (source != null) {
+            String sourceFromCache = this.probablyCache.getIfPresent(source);
+            if (sourceFromCache != null) {
+               this.probablyCache.put(tntPrimed, sourceFromCache);
+               return;
+            }
+            if (source instanceof Player) {
+               this.probablyCache.put(tntPrimed, source.getName());
+               return;
+            }
+         }
+         Location blockLocation = tntPrimed.getLocation().getBlock().getLocation();
+         String reason = this.probablyCache.getIfPresent(blockLocation);
+         if (reason != null) {
+            this.probablyCache.put(tntPrimed, reason);
+         }
+      } else if (type == EntityType.MINECART_HOPPER) {
+         Location spawnLocation = e.getLocation();
+         Player closestPlayer = null;
+         double closestDistance = Double.MAX_VALUE;
+         if (spawnLocation.getWorld() != null) {
+            for (Player player : spawnLocation.getWorld().getPlayers()) {
+               double distance = player.getLocation().distanceSquared(spawnLocation);
+               if (distance < closestDistance) {
+                  closestDistance = distance;
+                  closestPlayer = player;
+               }
+            }
+         }
+         if (closestPlayer != null && closestDistance < 225) {
+            if (this.minecartPlacerCache.getIfPresent(closestPlayer.getName()) != null) {
+               this.probablyCache.put(e.getEntity(), closestPlayer.getName());
+               this.minecartPlacerCache.invalidate(closestPlayer.getName());
+            }
+         }
+      }
+   }
+   
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
       if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
@@ -168,51 +225,6 @@ public class Main extends JavaPlugin implements Listener {
    }
 
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-   public void onEntitySpawn(EntitySpawnEvent e) {
-      EntityType type = e.getEntityType();
-      Entity entity = e.getEntity();
-
-      if (type == EntityType.PRIMED_TNT) {
-          TNTPrimed tntPrimed = (TNTPrimed) entity;
-          Entity source = tntPrimed.getSource();
-          if (source != null) {
-              String sourceFromCache = this.probablyCache.getIfPresent(source);
-              if (sourceFromCache != null) {
-                  this.probablyCache.put(tntPrimed, sourceFromCache);
-                  return;
-              }
-              if (source instanceof Player) {
-                  this.probablyCache.put(tntPrimed, source.getName());
-                  return;
-              }
-          }
-          Location blockLocation = tntPrimed.getLocation().getBlock().getLocation();
-          String reason = this.probablyCache.getIfPresent(blockLocation);
-          if (reason != null) {
-              this.probablyCache.put(tntPrimed, reason);
-          }
-      } else if (type == EntityType.MINECART_HOPPER) {
-            Location spawnLocation = e.getLocation();
-            Player closestPlayer = null;
-            double closestDistance = Double.MAX_VALUE;
-
-            if (spawnLocation.getWorld() != null) {
-                for (Player player : spawnLocation.getWorld().getPlayers()) {
-                    double distance = player.getLocation().distanceSquared(spawnLocation);
-                    if (distance < closestDistance) {
-                        closestDistance = distance;
-                        closestPlayer = player;
-                    }
-                }
-            }
-
-            if (closestPlayer != null && closestDistance < 100) { 
-                this.probablyCache.put(e.getEntity(), closestPlayer.getName());
-            }
-      }
-   }
-
-   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onHangingBreak(HangingBreakEvent e) {
       if (e.getCause() == HangingBreakEvent.RemoveCause.ENTITY) return;
       ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "hanging");
@@ -258,38 +270,38 @@ public class Main extends JavaPlugin implements Listener {
 
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onHangingHit(HangingBreakByEntityEvent e) {
-       if (!(e.getEntity() instanceof ItemFrame) && !(e.getEntity() instanceof Painting)) return;
-       ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), e.getEntity() instanceof ItemFrame ? "itemframe" : "hanging");
-       if (!section.getBoolean("enable", true)) return;
-       Hanging hanging = e.getEntity();
-       String removerName = null;
-       if (e.getRemover() instanceof Player) {
-           removerName = e.getRemover().getName();
-       } else if (e.getRemover() != null) {
-           removerName = probablyCache.getIfPresent(e.getRemover());
-           if (removerName == null) {
-               removerName = "#" + e.getRemover().getType().name().toLowerCase(Locale.ROOT);
-           } else {
-               if (!removerName.startsWith("#")) {
-                   removerName = "#" + e.getRemover().getType().name().toLowerCase(Locale.ROOT) + "-" + removerName;
-               }
-           }
-       }
-       if (removerName == null) {
-           if (section.getBoolean("disable-unknown")) {
-               e.setCancelled(true);
-               Util.broadcastNearPlayers(hanging.getLocation(), section.getString("alert"));
-           }
-           return;
-       }
-       Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;
-       api.logRemoval(removerName, hanging.getLocation(), material, null);
-       if (hanging instanceof ItemFrame) {
-           ItemFrame itemFrame = (ItemFrame) hanging;
-           if (itemFrame.getItem() != null && itemFrame.getItem().getType() != Material.AIR) {
-               api.logRemoval(removerName, hanging.getLocation(), itemFrame.getItem().getType(), null);
-           }
-       }
+      if (!(e.getEntity() instanceof ItemFrame) && !(e.getEntity() instanceof Painting)) return;
+      ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), e.getEntity() instanceof ItemFrame ? "itemframe" : "hanging");
+      if (!section.getBoolean("enable", true)) return;
+      Hanging hanging = e.getEntity();
+      String removerName = null;
+      if (e.getRemover() instanceof Player) {
+         removerName = e.getRemover().getName();
+      } else if (e.getRemover() != null) {
+         removerName = probablyCache.getIfPresent(e.getRemover());
+         if (removerName == null) {
+            removerName = "#" + e.getRemover().getType().name().toLowerCase(Locale.ROOT);
+         } else {
+            if (!removerName.startsWith("#")) {
+               removerName = "#" + e.getRemover().getType().name().toLowerCase(Locale.ROOT) + "-" + removerName;
+            }
+         }
+      }
+      if (removerName == null) {
+         if (section.getBoolean("disable-unknown")) {
+            e.setCancelled(true);
+            Util.broadcastNearPlayers(hanging.getLocation(), section.getString("alert"));
+         }
+         return;
+      }
+      Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;
+      api.logRemoval(removerName, hanging.getLocation(), material, null);
+      if (hanging instanceof ItemFrame) {
+         ItemFrame itemFrame = (ItemFrame) hanging;
+         if (itemFrame.getItem() != null && itemFrame.getItem().getType() != Material.AIR) {
+            api.logRemoval(removerName, hanging.getLocation(), itemFrame.getItem().getType(), null);
+         }
+      }
    }
 
    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
@@ -321,7 +333,7 @@ public class Main extends JavaPlugin implements Listener {
       } else if (e.getIgnitingEntity() != null) {
          sourceName = this.probablyCache.getIfPresent(e.getIgnitingEntity());
          if (sourceName == null) {
-             sourceName = "#" + e.getIgnitingEntity().getType().name().toLowerCase(Locale.ROOT);
+            sourceName = "#" + e.getIgnitingEntity().getType().name().toLowerCase(Locale.ROOT);
          }
       } else if (e.getIgnitingBlock() != null) {
          sourceName = this.probablyCache.getIfPresent(e.getIgnitingBlock().getLocation());
@@ -356,7 +368,8 @@ public class Main extends JavaPlugin implements Listener {
    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
    public void onBombHit(ProjectileHitEvent e) {
       if (e.getHitEntity() == null) return;
-      if (!(e.getHitEntity() instanceof ExplosiveMinecart) && e.getHitEntity().getType() != EntityType.ENDER_CRYSTAL) return;
+      if (!(e.getHitEntity() instanceof ExplosiveMinecart) && e.getHitEntity().getType() != EntityType.ENDER_CRYSTAL)
+         return;
       String source = this.probablyCache.getIfPresent(e.getEntity());
       if (source == null && e.getEntity().getShooter() instanceof Player) {
          source = ((Player) e.getEntity().getShooter()).getName();
@@ -368,81 +381,72 @@ public class Main extends JavaPlugin implements Listener {
 
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
    public void onExplode(EntityExplodeEvent e) {
-       Entity entity = e.getEntity();
-       EntityType entityType = e.getEntityType();
-       String entityName = entityType.name();
-
-       if (entity instanceof Player) {
-           String reason = "#mace-" + entity.getName();
-           for (Block block : e.blockList()) {
-               this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
-           }
-           return;
-       }
-
-       if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
-           String shooterName = this.probablyCache.getIfPresent(entity);
-           Iterator<Block> iterator = e.blockList().iterator();
-           while (iterator.hasNext()) {
-               Block block = iterator.next();
-               if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
-                   if (shooterName != null) {
-                       this.api.logInteraction(shooterName, block.getLocation());
-                   }
+      Entity entity = e.getEntity();
+      EntityType entityType = e.getEntityType();
+      String entityName = entityType.name();
+      if (entity instanceof Player) {
+         String reason = "#mace-" + entity.getName();
+         for (Block block : e.blockList()) {
+            this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+         }
+         return;
+      }
+      if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
+         String shooterName = this.probablyCache.getIfPresent(entity);
+         Iterator<Block> iterator = e.blockList().iterator();
+         while (iterator.hasNext()) {
+            Block block = iterator.next();
+            if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+               if (shooterName != null) {
+                  this.api.logInteraction(shooterName, block.getLocation());
+               }
+            } else {
+               iterator.remove();
+            }
+         }
+         return;
+      }
+      if (e.blockList().isEmpty()) return;
+      ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "entity-explosion");
+      if (!section.getBoolean("enable", true)) return;
+      String track = this.probablyCache.getIfPresent(entity);
+      if (track == null) {
+         if (entity instanceof Creeper) {
+            LivingEntity target = ((Creeper) entity).getTarget();
+            if (target != null) {
+               track = "#creeper-" + target.getName();
+            }
+         } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent) {
+            Entity damager = ((EntityDamageByEntityEvent) entity.getLastDamageCause()).getDamager();
+            String damagerTrack = this.probablyCache.getIfPresent(damager);
+            if (damagerTrack != null) {
+               if (damagerTrack.startsWith("#")) {
+                  track = damagerTrack;
                } else {
-                   iterator.remove();
+                  track = "#" + damager.getType().name().toLowerCase(Locale.ROOT) + "-" + damagerTrack;
                }
-           }
-           return;
-       }
-
-       if (e.blockList().isEmpty()) return;
-
-       ConfigurationSection section = Util.bakeConfigSection(this.getConfig(), "entity-explosion");
-       if (!section.getBoolean("enable", true)) return;
-
-       String track = this.probablyCache.getIfPresent(entity);
-
-       if (track == null) {
-           if (entity instanceof Creeper) {
-               LivingEntity target = ((Creeper) entity).getTarget();
-               if (target != null) {
-                   track = "#creeper-" + target.getName();
-               }
-           } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent) {
-               Entity damager = ((EntityDamageByEntityEvent) entity.getLastDamageCause()).getDamager();
-               String damagerTrack = this.probablyCache.getIfPresent(damager);
-               if (damagerTrack != null) {
-                   if (damagerTrack.startsWith("#")) {
-                       track = damagerTrack;
-                   } else {
-                       track = "#" + damager.getType().name().toLowerCase(Locale.ROOT) + "-" + damagerTrack;
-                   }
-               } else {
-                   track = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
-               }
-           }
-       }
-
-       if (track == null) {
-           if (section.getBoolean("disable-unknown")) {
-               e.blockList().clear();
-               Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
-           }
-           return;
-       }
-
-       String reason;
-       if (track.startsWith("#")) {
-           reason = track;
-       } else {
-           reason = "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
-       }
-
-       for (Block block : e.blockList()) {
-           this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
-           this.probablyCache.put(block.getLocation(), reason);
-       }
-       this.probablyCache.invalidate(entity);
+            } else {
+               track = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
+            }
+         }
+      }
+      if (track == null) {
+         if (section.getBoolean("disable-unknown")) {
+            e.blockList().clear();
+            Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
+         }
+         return;
+      }
+      String reason;
+      if (track.startsWith("#")) {
+         reason = track;
+      } else {
+         reason = "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
+      }
+      for (Block block : e.blockList()) {
+         this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+         this.probablyCache.put(block.getLocation(), reason);
+      }
+      this.probablyCache.invalidate(entity);
    }
 }
