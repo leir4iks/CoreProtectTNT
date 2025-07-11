@@ -1,7 +1,8 @@
 name: CoreProtectTNT
-main: com.ghostchu.coreprotecttnt.Main
+main: com.leir4iks.coreprotecttnt.Main
 version: ${version}
 api-version: 1.16
 depend:
   - CoreProtect
 authors: [GhostChu, leir4iks, danikovdev]
+folia-supported: true
