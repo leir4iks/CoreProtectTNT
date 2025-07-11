@@ -206,7 +206,7 @@ public class Main extends JavaPlugin implements Listener {
                 }
             }
 
-            if (closestPlayer != null && closestDistance < 25) { 
+            if (closestPlayer != null && closestDistance < 25) {
                 this.probablyCache.put(e.getEntity(), closestPlayer.getName());
             }
       }
