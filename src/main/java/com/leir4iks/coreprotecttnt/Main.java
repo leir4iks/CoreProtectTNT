@@ -14,6 +14,7 @@ import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
+import org.bukkit.entity.minecart.HopperMinecart;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -22,8 +23,10 @@ import org.bukkit.event.block.*;
 import org.bukkit.event.entity.*;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
+import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -52,6 +55,25 @@ public class Main extends JavaPlugin implements Listener {
          getLogger().severe("CoreProtect not found or invalid version. Disabling plugin.");
          this.getPluginLoader().disablePlugin(this);
       }
+   }
+
+   @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+   public void onHopperMove(InventoryMoveItemEvent e) {
+       InventoryHolder initiatorHolder = e.getInitiator().getHolder();
+       if (!(initiatorHolder instanceof HopperMinecart)) {
+           return;
+       }
+
+       HopperMinecart minecart = (HopperMinecart) initiatorHolder;
+       String ownerName = this.probablyCache.getIfPresent(minecart);
+
+       if (ownerName != null) {
+           Location sourceLocation = e.getSource().getLocation();
+           if (sourceLocation != null) {
+               String reason = "#hopper-" + ownerName;
+               api.logRemoval(reason, sourceLocation, e.getItem().getType(), null);
+           }
+       }
    }
 
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -146,25 +168,47 @@ public class Main extends JavaPlugin implements Listener {
    }
 
    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-   public void onIgniteTNT(EntitySpawnEvent e) {
-      if (!(e.getEntity() instanceof TNTPrimed)) return;
-      TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
-      Entity source = tntPrimed.getSource();
-      if (source != null) {
-         String sourceFromCache = this.probablyCache.getIfPresent(source);
-         if (sourceFromCache != null) {
-            this.probablyCache.put(tntPrimed, sourceFromCache);
-            return;
-         }
-         if (source instanceof Player) {
-            this.probablyCache.put(tntPrimed, source.getName());
-            return;
-         }
-      }
-      Location blockLocation = tntPrimed.getLocation().getBlock().getLocation();
-      String reason = this.probablyCache.getIfPresent(blockLocation);
-      if (reason != null) {
-         this.probablyCache.put(tntPrimed, reason);
+   public void onEntitySpawn(EntitySpawnEvent e) {
+      EntityType type = e.getEntityType();
+      Entity entity = e.getEntity();
+
+      if (type == EntityType.PRIMED_TNT) {
+          TNTPrimed tntPrimed = (TNTPrimed) entity;
+          Entity source = tntPrimed.getSource();
+          if (source != null) {
+              String sourceFromCache = this.probablyCache.getIfPresent(source);
+              if (sourceFromCache != null) {
+                  this.probablyCache.put(tntPrimed, sourceFromCache);
+                  return;
+              }
+              if (source instanceof Player) {
+                  this.probablyCache.put(tntPrimed, source.getName());
+                  return;
+              }
+          }
+          Location blockLocation = tntPrimed.getLocation().getBlock().getLocation();
+          String reason = this.probablyCache.getIfPresent(blockLocation);
+          if (reason != null) {
+              this.probablyCache.put(tntPrimed, reason);
+          }
+      } else if (type == EntityType.HOPPER_MINECART) {
+            Location spawnLocation = e.getLocation();
+            Player closestPlayer = null;
+            double closestDistance = Double.MAX_VALUE;
+
+            if (spawnLocation.getWorld() != null) {
+                for (Player player : spawnLocation.getWorld().getPlayers()) {
+                    double distance = player.getLocation().distanceSquared(spawnLocation);
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestPlayer = player;
+                    }
+                }
+            }
+
+            if (closestPlayer != null && closestDistance < 25) { // 5*5=25
+                this.probablyCache.put(e.getEntity(), closestPlayer.getName());
+            }
       }
    }
 
