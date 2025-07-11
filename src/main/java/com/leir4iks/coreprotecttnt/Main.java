@@ -7,6 +7,7 @@ import net.coreprotect.CoreProtectAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.block.Block;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Bed;
@@ -28,9 +29,9 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.projectiles.ProjectileSource;
 
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
-import com.leir4iks.coreprotecttnt.Util; // <- ИСПРАВЛЕНО: Добавлен импорт
 
 public class Main extends JavaPlugin implements Listener {
    private final Cache<Object, String> probablyCache;
@@ -66,7 +67,6 @@ public class Main extends JavaPlugin implements Listener {
          Location headLocation = (bed.getPart() == Bed.Part.HEAD) ? clickedBlock.getLocation() : clickedBlock.getLocation().add(bed.getFacing().getDirection());
          Location footLocation = (bed.getPart() == Bed.Part.FOOT) ? clickedBlock.getLocation() : clickedBlock.getLocation().subtract(bed.getFacing().getDirection());
          String reason = "#bed-" + e.getPlayer().getName();
-         // ИСПРАВЛЕНО: .toBlockLocation() заменен на .getBlock().getLocation()
          this.probablyCache.put(headLocation.getBlock().getLocation(), reason);
          this.probablyCache.put(footLocation.getBlock().getLocation(), reason);
       } else if (blockData instanceof RespawnAnchor) {
@@ -90,7 +90,6 @@ public class Main extends JavaPlugin implements Listener {
       String probablyCauses = this.probablyCache.getIfPresent(location);
 
       if (probablyCauses == null) {
-          // ИСПРАВЛЕНО: .toBlockLocation() заменен на .getBlock().getLocation()
          probablyCauses = this.probablyCache.getIfPresent(location.getBlock().getLocation());
       }
 
@@ -252,7 +251,10 @@ public class Main extends JavaPlugin implements Listener {
            if (removerName == null) {
                removerName = "#" + e.getRemover().getType().name().toLowerCase(Locale.ROOT);
            } else {
-               removerName = "#" + e.getRemover().getType().name().toLowerCase(Locale.ROOT) + "-" + removerName;
+              // ИСПРАВЛЕНО: Предотвращаем двойное добавление префикса
+               if (!removerName.startsWith("#")) {
+                   removerName = "#" + e.getRemover().getType().name().toLowerCase(Locale.ROOT) + "-" + removerName;
+               }
            }
        }
 
@@ -315,7 +317,12 @@ public class Main extends JavaPlugin implements Listener {
       }
       
       if (sourceName != null) {
-         this.probablyCache.put(e.getBlock().getLocation(), sourceName);
+         // ИСПРАВЛЕНО: Предотвращаем дублирование префиксов при распространении огня
+         if (sourceName.startsWith("#fire-")) {
+            this.probablyCache.put(e.getBlock().getLocation(), sourceName);
+         } else {
+            this.probablyCache.put(e.getBlock().getLocation(), "#fire-" + sourceName);
+         }
       } else if (section.getBoolean("disable-unknown", true)) {
          e.setCancelled(true);
       }
@@ -331,7 +338,9 @@ public class Main extends JavaPlugin implements Listener {
       String sourceFromCache = this.probablyCache.getIfPresent(e.getIgnitingBlock().getLocation());
       if (sourceFromCache != null) {
          this.probablyCache.put(e.getBlock().getLocation(), sourceFromCache);
-         this.api.logRemoval("#fire-" + sourceFromCache, e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
+          // ИСПРАВЛЕНО: Используем причину из кеша напрямую, если она уже содержит #fire-
+         String reason = sourceFromCache.startsWith("#") ? sourceFromCache : "#fire-" + sourceFromCache;
+         this.api.logRemoval(reason, e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
       } else if (section.getBoolean("disable-unknown", true)) {
          e.setCancelled(true);
          Util.broadcastNearPlayers(e.getIgnitingBlock().getLocation(), section.getString("alert"));
@@ -341,7 +350,6 @@ public class Main extends JavaPlugin implements Listener {
    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
    public void onBombHit(ProjectileHitEvent e) {
       if (e.getHitEntity() == null) return;
-      // ИСПРАВЛЕНО: Добавлен импорт для ExplosiveMinecart
       if (!(e.getHitEntity() instanceof ExplosiveMinecart) && e.getHitEntity().getType() != EntityType.ENDER_CRYSTAL) return;
 
       String source = this.probablyCache.getIfPresent(e.getEntity());
@@ -358,9 +366,18 @@ public class Main extends JavaPlugin implements Listener {
     public void onExplode(EntityExplodeEvent e) {
         EntityType entityType = e.getEntityType();
 
-        // ИСПРАВЛЕНО: Заменено на сравнение по имени для совместимости
-        if (entityType.name().equals("WIND_CHARGE") || entityType.name().equals("WIND_BURST") || entityType.name().equals("BREEZE_WIND_CHARGE")) {
-            e.blockList().clear();
+        // ИСПРАВЛЕНИЕ #3: Возвращаем ванильное поведение для зарядов ветра
+        String entityName = entityType.name();
+        if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
+            // Используем итератор для безопасного удаления элементов из списка
+            Iterator<Block> iterator = e.blockList().iterator();
+            while (iterator.hasNext()) {
+                Block block = iterator.next();
+                // Разрешаем взаимодействие только с дверьми и люками
+                if (!Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType())) {
+                    iterator.remove();
+                }
+            }
             return;
         }
 
@@ -372,7 +389,9 @@ public class Main extends JavaPlugin implements Listener {
         Entity entity = e.getEntity();
         String track = this.probablyCache.getIfPresent(entity);
 
+        // ИСПРАВЛЕНИЕ #2: Предотвращаем дублирование префиксов
         if (track == null) {
+            // Логика определения виновника, если его нет в кеше
             if (entity instanceof Creeper) {
                 LivingEntity target = ((Creeper) entity).getTarget();
                 if (target != null) {
@@ -380,13 +399,20 @@ public class Main extends JavaPlugin implements Listener {
                 }
             } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent) {
                 Entity damager = ((EntityDamageByEntityEvent) entity.getLastDamageCause()).getDamager();
-                track = this.probablyCache.getIfPresent(damager);
-                if (track == null) {
+                String damagerTrack = this.probablyCache.getIfPresent(damager);
+                if (damagerTrack != null) {
+                    // Если у "виновника" уже есть префикс, не добавляем новый
+                    if (damagerTrack.startsWith("#")) {
+                        track = damagerTrack;
+                    } else {
+                        track = "#" + damager.getType().name().toLowerCase(Locale.ROOT) + "-" + damagerTrack;
+                    }
+                } else {
                     track = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
                 }
             }
         }
-
+        
         if (track == null) {
             if (section.getBoolean("disable-unknown")) {
                 e.blockList().clear();
@@ -395,7 +421,14 @@ public class Main extends JavaPlugin implements Listener {
             return;
         }
 
-        String reason = "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
+        // Формируем конечную причину, только если у track еще нет префикса
+        String reason;
+        if (track.startsWith("#")) {
+            reason = track;
+        } else {
+            reason = "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
+        }
+
         for (Block block : e.blockList()) {
             this.api.logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
             this.probablyCache.put(block.getLocation(), reason);
