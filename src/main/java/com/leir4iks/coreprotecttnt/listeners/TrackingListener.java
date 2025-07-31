@@ -2,7 +2,6 @@ package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.entity.*;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
@@ -14,6 +13,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.projectiles.ProjectileSource;
 
 public class TrackingListener implements Listener {
@@ -25,18 +25,16 @@ public class TrackingListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onMaceHit(EntityDamageByEntityEvent e) {
-        if (!(e.getDamager() instanceof Player)) {
-            return;
-        }
-        Player player = (Player) e.getDamager();
-        if (player.getInventory().getItemInMainHand().getType() != Material.MACE) {
+        if (!(e.getDamager() instanceof Player player)) {
             return;
         }
 
-        Location impactLocation = e.getEntity().getLocation();
-        String reason = "#mace-" + player.getName();
-
-        this.plugin.getCache().put(impactLocation.getBlock().getLocation(), reason);
+        ItemStack itemInHand = player.getInventory().getItemInMainHand();
+        if (itemInHand.getType().name().equals("MACE")) {
+            Location impactLocation = e.getEntity().getLocation();
+            String reason = "#mace-" + player.getName();
+            this.plugin.getCache().put(impactLocation.getBlock().getLocation(), reason);
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
