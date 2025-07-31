@@ -6,7 +6,6 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.block.Block;
-import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.configuration.ConfigurationSection;
@@ -20,10 +19,9 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.projectiles.ProjectileSource;
 
-import java.util.Iterator;
 import java.util.Locale;
+import java.util.Objects;
 
 public class ExplosionListener implements Listener {
     private final Main plugin;
@@ -37,15 +35,13 @@ public class ExplosionListener implements Listener {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Block clickedBlock = e.getClickedBlock();
         if (clickedBlock == null) return;
-        BlockData blockData = clickedBlock.getBlockData();
-        if (blockData instanceof Bed) {
-            Bed bed = (Bed) blockData;
+        if (clickedBlock.getBlockData() instanceof Bed bed) {
             Location headLocation = (bed.getPart() == Bed.Part.HEAD) ? clickedBlock.getLocation() : clickedBlock.getLocation().add(bed.getFacing().getDirection());
             Location footLocation = (bed.getPart() == Bed.Part.FOOT) ? clickedBlock.getLocation() : clickedBlock.getLocation().subtract(bed.getFacing().getDirection());
             String reason = "#bed-" + e.getPlayer().getName();
             this.plugin.getCache().put(headLocation.getBlock().getLocation(), reason);
             this.plugin.getCache().put(footLocation.getBlock().getLocation(), reason);
-        } else if (blockData instanceof RespawnAnchor) {
+        } else if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
             this.plugin.getCache().put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
         }
     }
@@ -63,7 +59,6 @@ public class ExplosionListener implements Listener {
             e.blockList().clear();
             return;
         }
-
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "block-explosion");
         if (!section.getBoolean("enable", true)) return;
         Location location = e.getBlock().getLocation();
@@ -89,45 +84,35 @@ public class ExplosionListener implements Listener {
             e.blockList().clear();
             return;
         }
-
         EntityType entityType = e.getEntityType();
         String entityName = entityType.name();
-
         if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
-            Iterator<Block> iterator = e.blockList().iterator();
-            while (iterator.hasNext()) {
-                Block block = iterator.next();
-                if (!Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType())) {
-                    iterator.remove();
-                }
-            }
+            e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
         }
-
         if (e.blockList().isEmpty()) return;
-
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "entity-explosion");
         if (!section.getBoolean("enable", true)) return;
-
         Entity entity = e.getEntity();
         String track = this.plugin.getCache().getIfPresent(entity);
-
         if (track == null) {
-            if (entity instanceof Creeper) {
-                LivingEntity target = ((Creeper) entity).getTarget();
-                if (target != null) {
-                    track = target.getName();
+            track = Objects.requireNonNullElseGet(this.plugin.getCache().getIfPresent(entity.getLocation()), () -> {
+                if (entity instanceof Creeper) {
+                    LivingEntity target = ((Creeper) entity).getTarget();
+                    if (target != null) {
+                        return target.getName();
+                    }
+                } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
+                    Entity damager = event.getDamager();
+                    String damagerTrack = this.plugin.getCache().getIfPresent(damager);
+                    if (damagerTrack != null) {
+                        return damagerTrack;
+                    } else {
+                        return "#" + damager.getType().name().toLowerCase(Locale.ROOT);
+                    }
                 }
-            } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent) {
-                Entity damager = ((EntityDamageByEntityEvent) entity.getLastDamageCause()).getDamager();
-                String damagerTrack = this.plugin.getCache().getIfPresent(damager);
-                if (damagerTrack != null) {
-                    track = damagerTrack;
-                } else {
-                    track = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
-                }
-            }
+                return null;
+            });
         }
-
         if (track == null) {
             if (section.getBoolean("disable-unknown", false)) {
                 e.blockList().clear();
@@ -135,14 +120,12 @@ public class ExplosionListener implements Listener {
             }
             return;
         }
-
         String reason;
         if (track.startsWith("#")) {
             reason = track;
         } else {
             reason = "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
         }
-
         for (Block block : e.blockList()) {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
             this.plugin.getCache().put(block.getLocation(), reason);
