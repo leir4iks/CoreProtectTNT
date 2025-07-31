@@ -21,24 +21,26 @@ public class FireListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockIgnite(BlockIgniteEvent e) {
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "fire");
-        if (!section.getBoolean("enable", true)) return;
-
-        String sourceName = null;
-        if (e.getPlayer() != null) {
-            sourceName = e.getPlayer().getName();
-        } else if (e.getIgnitingEntity() != null) {
-            sourceName = this.plugin.getCache().getIfPresent(e.getIgnitingEntity());
-            if (sourceName == null) {
-                sourceName = "#" + e.getIgnitingEntity().getType().name().toLowerCase(Locale.ROOT);
-            }
-        } else if (e.getIgnitingBlock() != null) {
-            sourceName = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
+        if (!section.getBoolean("enable", true)) {
+            return;
         }
 
-        if (sourceName != null) {
-            String reason = sourceName.startsWith("#") ? sourceName : "#fire-" + sourceName;
+        String cause = null;
+        if (e.getPlayer() != null) {
+            cause = e.getPlayer().getName();
+        } else if (e.getIgnitingEntity() != null) {
+            cause = this.plugin.getCache().getIfPresent(e.getIgnitingEntity());
+            if (cause == null) {
+                cause = "#" + e.getIgnitingEntity().getType().name().toLowerCase(Locale.ROOT);
+            }
+        } else if (e.getIgnitingBlock() != null) {
+            cause = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
+        }
+
+        if (cause != null) {
+            String reason = cause.startsWith("#") ? cause : "#fire-" + cause;
             this.plugin.getCache().put(e.getBlock().getLocation(), reason);
-        } else if (section.getBoolean("disable-unknown", true)) {
+        } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
         }
     }
@@ -46,18 +48,21 @@ public class FireListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBurn(BlockBurnEvent e) {
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "fire");
-        if (!section.getBoolean("enable", true)) return;
-        if (e.getIgnitingBlock() == null) return;
+        if (!section.getBoolean("enable", true) || e.getIgnitingBlock() == null) {
+            return;
+        }
 
-        String sourceFromCache = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
-        if (sourceFromCache != null) {
-            this.plugin.getCache().put(e.getBlock().getLocation(), sourceFromCache);
-            this.plugin.getCache().put(e.getIgnitingBlock().getLocation(), sourceFromCache);
-            String reason = sourceFromCache.startsWith("#") ? sourceFromCache : "#burn-" + sourceFromCache;
+        String source = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
+
+        if (source != null) {
+            this.plugin.getCache().put(e.getIgnitingBlock().getLocation(), source);
+            this.plugin.getCache().put(e.getBlock().getLocation(), source);
+
+            String reason = source.startsWith("#") ? source : "#fire-" + source;
             this.plugin.getApi().logRemoval(reason, e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
-        } else if (section.getBoolean("disable-unknown", true)) {
+        } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
-            Util.broadcastNearPlayers(e.getIgnitingBlock().getLocation(), section.getString("alert"));
+            Util.broadcastNearPlayers(e.getBlock().getLocation(), section.getString("alert"));
         }
     }
 }
