@@ -77,10 +77,16 @@ public class ExplosionListener implements Listener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
         EntityType entityType = e.getEntityType();
         String entityName = entityType.name();
+
+        if (entityName.equals("BLOCK_AND_ENTITY_SMASHER")) {
+            e.blockList().clear();
+            return;
+        }
+
         if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
             Iterator<Block> iterator = e.blockList().iterator();
             while (iterator.hasNext()) {
@@ -91,6 +97,7 @@ public class ExplosionListener implements Listener {
             }
             return;
         }
+
         if (e.blockList().isEmpty()) return;
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "entity-explosion");
         if (!section.getBoolean("enable", true)) return;
@@ -112,6 +119,7 @@ public class ExplosionListener implements Listener {
                 }
             }
         }
+
         if (track == null) {
             if (section.getBoolean("disable-unknown", false)) {
                 e.blockList().clear();
@@ -119,12 +127,14 @@ public class ExplosionListener implements Listener {
             }
             return;
         }
+
         String reason;
         if (track.startsWith("#")) {
             reason = track;
         } else {
             reason = "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
         }
+
         for (Block block : e.blockList()) {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
             this.plugin.getCache().put(block.getLocation(), reason);

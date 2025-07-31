@@ -114,16 +114,13 @@ public class FireListener implements Listener {
             @Override
             public void run() {
                 long now = System.currentTimeMillis();
-                long timeout = 30000; // 30 seconds
+                long timeout = 30000;
                 activeFires.values().removeIf(source -> (now - source.lastActivity) > timeout);
             }
-        }.runTaskTimerAsynchronously(this.plugin, 200L, 200L); // Every 10 seconds
+        }.runTaskTimerAsynchronously(this.plugin, 200L, 200L);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onFireFade(BlockFadeEvent e) {
-        // This is now less critical, as the cleanup task will handle it,
-        // but it doesn't hurt to have it for immediate cleanup.
-        // The core logic now relies on the robust cleanup task.
     }
 }
