@@ -33,7 +33,7 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
-        if (e.getEntityType() == EntityType.WIND_CHARGE) {
+        if (e.getEntityType().name().equals("WIND_CHARGE")) {
             Location explosionLocation = e.getLocation();
             for (Entity nearby : explosionLocation.getWorld().getNearbyEntities(explosionLocation, 5.0, 5.0, 5.0)) {
                 if (nearby instanceof Player player) {
@@ -45,7 +45,6 @@ public class ExplosionListener implements Listener {
                     }
                 }
             }
-
             e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
         }
 
@@ -115,7 +114,7 @@ public class ExplosionListener implements Listener {
             this.plugin.getApi().logRemoval(probablyCauses, block.getLocation(), block.getType(), block.getBlockData());
         }
     }
-
+    
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
