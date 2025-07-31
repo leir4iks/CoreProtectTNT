@@ -19,7 +19,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -34,11 +33,16 @@ public class ExplosionListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
-            if (e.getEntity() instanceof WindCharge windCharge) {
-                ProjectileSource shooter = windCharge.getShooter();
-                if (shooter instanceof Player) {
-                    e.blockList().clear();
-                    return;
+            Location explosionCenter = e.getLocation();
+
+            for (Entity nearbyEntity : explosionCenter.getWorld().getNearbyEntities(explosionCenter, 1.5, 1.5, 1.5)) {
+                if (nearbyEntity instanceof Player player) {
+                    if (player.getInventory().getItemInMainHand().getType() == Material.MACE ||
+                            player.getInventory().getItemInOffHand().getType() == Material.MACE) {
+
+                        e.blockList().clear();
+                        return;
+                    }
                 }
             }
             e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
