@@ -31,38 +31,27 @@ public class ExplosionListener implements Listener {
         this.plugin = plugin;
     }
 
-    private boolean isIgnorableWindBurst(EntityExplodeEvent e) {
-        if (e.getYield() == 0.0f) {
-            return true;
-        }
-
-        if (e.getEntityType().name().equals("BLOCK_AND_ENTITY_SMASHER")) {
-            return true;
-        }
-
-        Location explosionLocation = e.getLocation();
-        for (Entity nearby : explosionLocation.getWorld().getNearbyEntities(explosionLocation, 5.0, 5.0, 5.0)) {
-            if (nearby instanceof Player player) {
-                UUID playerUUID = player.getUniqueId();
-                if (this.plugin.getMaceCache().getIfPresent(playerUUID) != null) {
-                    this.plugin.getMaceCache().invalidate(playerUUID);
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
-        if (isIgnorableWindBurst(e)) {
-            e.blockList().clear();
-            return;
+        if (e.getEntityType() == EntityType.WIND_CHARGE) {
+            Location explosionLocation = e.getLocation();
+            for (Entity nearby : explosionLocation.getWorld().getNearbyEntities(explosionLocation, 5.0, 5.0, 5.0)) {
+                if (nearby instanceof Player player) {
+                    UUID playerUUID = player.getUniqueId();
+                    if (this.plugin.getMaceCache().getIfPresent(playerUUID) != null) {
+                        this.plugin.getMaceCache().invalidate(playerUUID);
+                        e.blockList().clear();
+                        return;
+                    }
+                }
+            }
+
+            e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
         }
 
-        String entityName = e.getEntityType().name();
-        if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
-            e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
+        if (e.getYield() == 0.0f) {
+            e.blockList().clear();
+            return;
         }
 
         if (e.blockList().isEmpty()) return;
