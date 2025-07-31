@@ -19,10 +19,10 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.Locale;
 import java.util.Objects;
-import java.util.UUID;
 
 public class ExplosionListener implements Listener {
     private final Main plugin;
@@ -33,16 +33,12 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
-        if (e.getEntityType().name().equals("WIND_CHARGE")) {
-            Location explosionLocation = e.getLocation();
-            for (Entity nearby : explosionLocation.getWorld().getNearbyEntities(explosionLocation, 5.0, 5.0, 5.0)) {
-                if (nearby instanceof Player player) {
-                    UUID playerUUID = player.getUniqueId();
-                    if (this.plugin.getMaceCache().getIfPresent(playerUUID) != null) {
-                        this.plugin.getMaceCache().invalidate(playerUUID);
-                        e.blockList().clear();
-                        return;
-                    }
+        if (e.getEntityType() == EntityType.WIND_CHARGE) {
+            if (e.getEntity() instanceof WindCharge windCharge) {
+                ProjectileSource shooter = windCharge.getShooter();
+                if (shooter instanceof Player) {
+                    e.blockList().clear();
+                    return;
                 }
             }
             e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
@@ -114,7 +110,7 @@ public class ExplosionListener implements Listener {
             this.plugin.getApi().logRemoval(probablyCauses, block.getLocation(), block.getType(), block.getBlockData());
         }
     }
-    
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;

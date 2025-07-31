@@ -13,7 +13,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.projectiles.ProjectileSource;
 
 public class TrackingListener implements Listener {
@@ -21,31 +20,6 @@ public class TrackingListener implements Listener {
 
     public TrackingListener(Main plugin) {
         this.plugin = plugin;
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onEntityHit(EntityDamageByEntityEvent e) {
-        if (e.getDamager() instanceof Player player) {
-            ItemStack itemInHand = player.getInventory().getItemInMainHand();
-            if (itemInHand.getType().name().equals("MACE")) {
-                this.plugin.getMaceCache().put(player.getUniqueId(), true);
-            }
-        }
-
-        if (!(e.getDamager() instanceof Projectile projectile)) return;
-        ProjectileSource shooter = projectile.getShooter();
-        if (shooter == null) return;
-        String sourceName = this.plugin.getCache().getIfPresent(projectile);
-        if (sourceName == null) {
-            if (shooter instanceof Player) {
-                sourceName = ((Player) shooter).getName();
-            } else if (shooter instanceof Entity) {
-                sourceName = ((Entity) shooter).getName();
-            }
-        }
-        if (sourceName != null) {
-            this.plugin.getCache().put(e.getEntity(), sourceName);
-        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -73,7 +47,8 @@ public class TrackingListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onIgniteTNT(EntitySpawnEvent e) {
-        if (!(e.getEntity() instanceof TNTPrimed tntPrimed)) return;
+        if (!(e.getEntity() instanceof TNTPrimed)) return;
+        TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
         Entity source = tntPrimed.getSource();
         if (source != null) {
             String sourceFromCache = this.plugin.getCache().getIfPresent(source);
@@ -110,6 +85,25 @@ public class TrackingListener implements Listener {
         }
         if (damagerName != null) {
             this.plugin.getCache().put(e.getEntity(), damagerName);
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
+    public void onEntityHitByProjectile(EntityDamageByEntityEvent e) {
+        if (!(e.getDamager() instanceof Projectile)) return;
+        Projectile projectile = (Projectile) e.getDamager();
+        ProjectileSource shooter = projectile.getShooter();
+        if (shooter == null) return;
+        String sourceName = this.plugin.getCache().getIfPresent(projectile);
+        if (sourceName == null) {
+            if (shooter instanceof Player) {
+                sourceName = ((Player) shooter).getName();
+            } else if (shooter instanceof Entity) {
+                sourceName = ((Entity) shooter).getName();
+            }
+        }
+        if (sourceName != null) {
+            this.plugin.getCache().put(e.getEntity(), sourceName);
         }
     }
 

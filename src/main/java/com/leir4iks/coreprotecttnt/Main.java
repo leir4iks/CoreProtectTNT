@@ -12,17 +12,14 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class Main extends JavaPlugin {
    private final Cache<Object, String> probablyCache;
-   private final Cache<UUID, Boolean> maceCache;
    private CoreProtectAPI api;
 
    public Main() {
       this.probablyCache = CacheBuilder.newBuilder().expireAfterAccess(1L, TimeUnit.HOURS).concurrencyLevel(4).maximumSize(50000L).build();
-      this.maceCache = CacheBuilder.newBuilder().expireAfterWrite(200, TimeUnit.MILLISECONDS).build();
    }
 
    @Override
@@ -58,9 +55,5 @@ public class Main extends JavaPlugin {
 
    public Cache<Object, String> getCache() {
       return probablyCache;
-   }
-
-   public Cache<UUID, Boolean> getMaceCache() {
-      return maceCache;
    }
 }
