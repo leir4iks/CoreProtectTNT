@@ -59,6 +59,11 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockExplode(BlockExplodeEvent e) {
+        if (e.getYield() == 0.0f) {
+            e.blockList().clear();
+            return;
+        }
+
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "block-explosion");
         if (!section.getBoolean("enable", true)) return;
         Location location = e.getBlock().getLocation();
@@ -80,33 +85,21 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
-        EntityType entityType = e.getEntityType();
-        String entityName = entityType.name();
-
-        if (entityName.equals("BLOCK_AND_ENTITY_SMASHER")) {
+        if (e.getYield() == 0.0f) {
             e.blockList().clear();
             return;
         }
 
-        if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
-            if (e.getEntity() instanceof Projectile) {
-                Projectile projectile = (Projectile) e.getEntity();
-                ProjectileSource source = projectile.getShooter();
-                if (source instanceof Player) {
-                    e.blockList().clear();
-                    return;
-                }
-            }
+        EntityType entityType = e.getEntityType();
+        String entityName = entityType.name();
 
+        if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
             Iterator<Block> iterator = e.blockList().iterator();
             while (iterator.hasNext()) {
                 Block block = iterator.next();
                 if (!Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType())) {
                     iterator.remove();
                 }
-            }
-            if (e.blockList().isEmpty()) {
-                return;
             }
         }
 
