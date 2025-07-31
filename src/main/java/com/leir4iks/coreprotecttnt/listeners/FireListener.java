@@ -3,59 +3,68 @@ package com.leir4iks.coreprotecttnt.listeners;
 import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.*;
+import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockFadeEvent;
+import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.util.BoundingBox;
 
 import java.util.Locale;
-import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class FireListener implements Listener {
+
     private final Main plugin;
-    private final Map<Location, String> fireTracker = new ConcurrentHashMap<>();
-    private static final BlockFace[] ADJACENT_FACES = {
-            BlockFace.UP, BlockFace.DOWN,
-            BlockFace.NORTH, BlockFace.SOUTH,
-            BlockFace.EAST, BlockFace.WEST
-    };
+    private final ConcurrentMap<UUID, FireSource> activeFires = new ConcurrentHashMap<>();
+
+    private static class FireSource {
+        String cause;
+        BoundingBox boundingBox;
+        long lastActivity;
+
+        FireSource(String cause, Location origin) {
+            this.cause = cause;
+            this.boundingBox = new BoundingBox(origin.getX(), origin.getY(), origin.getZ(), origin.getX() + 1, origin.getY() + 1, origin.getZ() + 1);
+            this.lastActivity = System.currentTimeMillis();
+        }
+
+        void expandTo(Location loc) {
+            this.boundingBox.expand(loc.getX(), loc.getY(), loc.getZ());
+            this.lastActivity = System.currentTimeMillis();
+        }
+    }
 
     public FireListener(Main plugin) {
         this.plugin = plugin;
+        startCleanupTask();
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockIgnite(BlockIgniteEvent e) {
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "fire");
-        if (!section.getBoolean("enable", true)) {
-            return;
-        }
+        if (!section.getBoolean("enable", true)) return;
 
-        String cause = null;
-        if (e.getPlayer() != null) {
-            cause = e.getPlayer().getName();
-        } else if (e.getIgnitingEntity() != null) {
-            cause = this.plugin.getCache().getIfPresent(e.getIgnitingEntity());
-            if (cause == null) {
-                cause = "#" + e.getIgnitingEntity().getType().name().toLowerCase(Locale.ROOT);
-            }
-        } else if (e.getIgnitingBlock() != null) {
-            Location ignitingLocation = e.getIgnitingBlock().getLocation();
-            cause = this.fireTracker.get(ignitingLocation);
-            if (cause == null) {
-                cause = this.plugin.getCache().getIfPresent(ignitingLocation);
+        String cause = determineInitialCause(e.getPlayer(), e.getIgnitingBlock(), e.getIgnitingEntity());
+        if (cause == null && e.getIgnitingBlock() != null) {
+            FireSource existingSource = findSourceFor(e.getIgnitingBlock().getLocation());
+            if (existingSource != null) {
+                cause = existingSource.cause;
+                existingSource.expandTo(e.getBlock().getLocation());
             }
         }
 
         if (cause != null) {
             String reason = cause.startsWith("#") ? cause : "#fire-" + cause;
-            this.fireTracker.put(e.getBlock().getLocation(), reason);
+            activeFires.put(UUID.randomUUID(), new FireSource(reason, e.getBlock().getLocation()));
         } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
         }
@@ -64,48 +73,57 @@ public class FireListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBurn(BlockBurnEvent e) {
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "fire");
-        if (!section.getBoolean("enable", true)) {
-            return;
-        }
+        if (!section.getBoolean("enable", true)) return;
 
-        String source = findSourceFromHeatArea(e.getBlock());
-
+        FireSource source = findSourceFor(e.getBlock().getLocation());
         if (source != null) {
-            this.fireTracker.put(e.getBlock().getLocation(), source);
+            source.expandTo(e.getBlock().getLocation());
             BlockState burnedBlockState = e.getBlock().getState();
-            this.plugin.getApi().logRemoval(source, burnedBlockState.getLocation(), burnedBlockState.getType(), burnedBlockState.getBlockData());
+            this.plugin.getApi().logRemoval(source.cause, burnedBlockState.getLocation(), burnedBlockState.getType(), burnedBlockState.getBlockData());
         } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
             Util.broadcastNearPlayers(e.getBlock().getLocation(), section.getString("alert"));
         }
     }
 
-    private String findSourceFromHeatArea(Block block) {
-        Location blockLocation = block.getLocation();
-        for (BlockFace face : ADJACENT_FACES) {
-            Location adjacent = block.getRelative(face).getLocation();
-            String source = this.fireTracker.get(adjacent);
-            if (source != null) {
+    private String determineInitialCause(Player player, Block ignitingBlock, org.bukkit.entity.Entity ignitingEntity) {
+        if (player != null) {
+            return player.getName();
+        }
+        if (ignitingEntity != null) {
+            String fromCache = this.plugin.getCache().getIfPresent(ignitingEntity);
+            return fromCache != null ? fromCache : "#" + ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
+        }
+        if (ignitingBlock != null) {
+            return this.plugin.getCache().getIfPresent(ignitingBlock.getLocation());
+        }
+        return null;
+    }
+
+    private FireSource findSourceFor(Location location) {
+        for (FireSource source : activeFires.values()) {
+            if (source.boundingBox.clone().expand(4.0).contains(location.toVector())) {
                 return source;
             }
         }
         return null;
     }
 
+    private void startCleanupTask() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                long now = System.currentTimeMillis();
+                long timeout = 30000; // 30 seconds
+                activeFires.values().removeIf(source -> (now - source.lastActivity) > timeout);
+            }
+        }.runTaskTimerAsynchronously(this.plugin, 200L, 200L); // Every 10 seconds
+    }
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onFireFade(BlockFadeEvent e) {
-        if (e.getBlock().getType() == Material.FIRE) {
-            this.fireTracker.remove(e.getBlock().getLocation());
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onBlockPlace(BlockPlaceEvent e) {
-        this.fireTracker.remove(e.getBlock().getLocation());
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onBlockBreak(BlockBreakEvent e) {
-        this.fireTracker.remove(e.getBlock().getLocation());
+        // This is now less critical, as the cleanup task will handle it,
+        // but it doesn't hurt to have it for immediate cleanup.
+        // The core logic now relies on the robust cleanup task.
     }
 }
