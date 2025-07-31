@@ -105,7 +105,9 @@ public class ExplosionListener implements Listener {
                     iterator.remove();
                 }
             }
-            return;
+            if (e.blockList().isEmpty()) {
+                return;
+            }
         }
 
         if (e.blockList().isEmpty()) return;
