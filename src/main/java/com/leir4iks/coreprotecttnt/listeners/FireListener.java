@@ -72,7 +72,7 @@ public class FireListener implements Listener {
             this.fireTracker.put(e.getBlock().getLocation(), source);
             String reason = source.startsWith("#") ? source : "#fire-" + source;
             BlockState burnedBlockState = e.getBlock().getState();
-            this.plugin.getApi().logRemoval(reason, burnedBlockState);
+            this.plugin.getApi().logRemoval(reason, burnedBlockState.getLocation(), burnedBlockState.getType(), burnedBlockState.getBlockData());
         } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
             Util.broadcastNearPlayers(e.getBlock().getLocation(), section.getString("alert"));
