@@ -39,7 +39,11 @@ public class FireListener implements Listener {
                 cause = "#" + e.getIgnitingEntity().getType().name().toLowerCase(Locale.ROOT);
             }
         } else if (e.getIgnitingBlock() != null) {
-            cause = this.fireTracker.get(e.getIgnitingBlock().getLocation());
+            Location ignitingLocation = e.getIgnitingBlock().getLocation();
+            cause = this.fireTracker.get(ignitingLocation);
+            if (cause == null) {
+                cause = this.plugin.getCache().getIfPresent(ignitingLocation);
+            }
         }
 
         if (cause != null) {
@@ -61,9 +65,8 @@ public class FireListener implements Listener {
 
         if (source != null) {
             this.fireTracker.put(e.getBlock().getLocation(), source);
-            String reason = source.startsWith("#") ? source : "#fire-" + source;
             BlockState burnedBlockState = e.getBlock().getState();
-            this.plugin.getApi().logRemoval(reason, burnedBlockState.getLocation(), burnedBlockState.getType(), burnedBlockState.getBlockData());
+            this.plugin.getApi().logRemoval(source, burnedBlockState.getLocation(), burnedBlockState.getType(), burnedBlockState.getBlockData());
         } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
             Util.broadcastNearPlayers(e.getBlock().getLocation(), section.getString("alert"));
