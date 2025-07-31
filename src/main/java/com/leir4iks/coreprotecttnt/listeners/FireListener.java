@@ -9,10 +9,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockBurnEvent;
-import org.bukkit.event.block.BlockFadeEvent;
-import org.bukkit.event.block.BlockIgniteEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.*;
 
 import java.util.Locale;
 import java.util.Map;
@@ -43,9 +40,6 @@ public class FireListener implements Listener {
             }
         } else if (e.getIgnitingBlock() != null) {
             cause = this.fireTracker.get(e.getIgnitingBlock().getLocation());
-            if (cause == null) {
-                cause = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
-            }
         }
 
         if (cause != null) {
@@ -64,9 +58,6 @@ public class FireListener implements Listener {
         }
 
         String source = this.fireTracker.get(e.getIgnitingBlock().getLocation());
-        if (source == null) {
-            source = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
-        }
 
         if (source != null) {
             this.fireTracker.put(e.getBlock().getLocation(), source);
@@ -88,6 +79,11 @@ public class FireListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockPlace(BlockPlaceEvent e) {
+        this.fireTracker.remove(e.getBlock().getLocation());
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockBreak(BlockBreakEvent e) {
         this.fireTracker.remove(e.getBlock().getLocation());
     }
 }
