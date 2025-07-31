@@ -4,6 +4,8 @@ import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.EventHandler;
@@ -18,6 +20,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class FireListener implements Listener {
     private final Main plugin;
     private final Map<Location, String> fireTracker = new ConcurrentHashMap<>();
+    private static final BlockFace[] ADJACENT_FACES = {
+            BlockFace.UP, BlockFace.DOWN,
+            BlockFace.NORTH, BlockFace.SOUTH,
+            BlockFace.EAST, BlockFace.WEST
+    };
 
     public FireListener(Main plugin) {
         this.plugin = plugin;
@@ -57,11 +64,11 @@ public class FireListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBurn(BlockBurnEvent e) {
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "fire");
-        if (!section.getBoolean("enable", true) || e.getIgnitingBlock() == null) {
+        if (!section.getBoolean("enable", true)) {
             return;
         }
 
-        String source = this.fireTracker.get(e.getIgnitingBlock().getLocation());
+        String source = findSourceFromHeatArea(e.getBlock());
 
         if (source != null) {
             this.fireTracker.put(e.getBlock().getLocation(), source);
@@ -71,6 +78,18 @@ public class FireListener implements Listener {
             e.setCancelled(true);
             Util.broadcastNearPlayers(e.getBlock().getLocation(), section.getString("alert"));
         }
+    }
+
+    private String findSourceFromHeatArea(Block block) {
+        Location blockLocation = block.getLocation();
+        for (BlockFace face : ADJACENT_FACES) {
+            Location adjacent = block.getRelative(face).getLocation();
+            String source = this.fireTracker.get(adjacent);
+            if (source != null) {
+                return source;
+            }
+        }
+        return null;
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
