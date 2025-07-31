@@ -2,17 +2,24 @@ package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBurnEvent;
+import org.bukkit.event.block.BlockFadeEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class FireListener implements Listener {
     private final Main plugin;
+    private final Map<Location, String> fireTracker = new ConcurrentHashMap<>();
 
     public FireListener(Main plugin) {
         this.plugin = plugin;
@@ -34,12 +41,15 @@ public class FireListener implements Listener {
                 cause = "#" + e.getIgnitingEntity().getType().name().toLowerCase(Locale.ROOT);
             }
         } else if (e.getIgnitingBlock() != null) {
-            cause = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
+            cause = this.fireTracker.get(e.getIgnitingBlock().getLocation());
+            if (cause == null) {
+                cause = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
+            }
         }
 
         if (cause != null) {
             String reason = cause.startsWith("#") ? cause : "#fire-" + cause;
-            this.plugin.getCache().put(e.getBlock().getLocation(), reason);
+            this.fireTracker.put(e.getBlock().getLocation(), reason);
         } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
         }
@@ -52,17 +62,30 @@ public class FireListener implements Listener {
             return;
         }
 
-        String source = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
+        String source = this.fireTracker.get(e.getIgnitingBlock().getLocation());
+        if (source == null) {
+            source = this.plugin.getCache().getIfPresent(e.getIgnitingBlock().getLocation());
+        }
 
         if (source != null) {
-            this.plugin.getCache().put(e.getIgnitingBlock().getLocation(), source);
-            this.plugin.getCache().put(e.getBlock().getLocation(), source);
-
+            this.fireTracker.put(e.getBlock().getLocation(), source);
             String reason = source.startsWith("#") ? source : "#fire-" + source;
             this.plugin.getApi().logRemoval(reason, e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
         } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
             Util.broadcastNearPlayers(e.getBlock().getLocation(), section.getString("alert"));
         }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onFireFade(BlockFadeEvent e) {
+        if (e.getBlock().getType() == Material.FIRE) {
+            this.fireTracker.remove(e.getBlock().getLocation());
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onBlockPlace(BlockPlaceEvent e) {
+        this.fireTracker.remove(e.getBlock().getLocation());
     }
 }
