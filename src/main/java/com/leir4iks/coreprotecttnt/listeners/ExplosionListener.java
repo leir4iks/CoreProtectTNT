@@ -20,6 +20,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.Iterator;
 import java.util.Locale;
@@ -88,6 +89,12 @@ public class ExplosionListener implements Listener {
         }
 
         if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
+            ProjectileSource source = e.getEntity().getSource();
+            if (source instanceof Player) {
+                e.blockList().clear();
+                return;
+            }
+
             Iterator<Block> iterator = e.blockList().iterator();
             while (iterator.hasNext()) {
                 Block block = iterator.next();
@@ -99,10 +106,13 @@ public class ExplosionListener implements Listener {
         }
 
         if (e.blockList().isEmpty()) return;
+
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "entity-explosion");
         if (!section.getBoolean("enable", true)) return;
+
         Entity entity = e.getEntity();
         String track = this.plugin.getCache().getIfPresent(entity);
+
         if (track == null) {
             if (entity instanceof Creeper) {
                 LivingEntity target = ((Creeper) entity).getTarget();
