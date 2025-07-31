@@ -89,10 +89,13 @@ public class ExplosionListener implements Listener {
         }
 
         if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
-            ProjectileSource source = e.getEntity().getSource();
-            if (source instanceof Player) {
-                e.blockList().clear();
-                return;
+            if (e.getEntity() instanceof Projectile) {
+                Projectile projectile = (Projectile) e.getEntity();
+                ProjectileSource source = projectile.getSource();
+                if (source instanceof Player) {
+                    e.blockList().clear();
+                    return;
+                }
             }
 
             Iterator<Block> iterator = e.blockList().iterator();
