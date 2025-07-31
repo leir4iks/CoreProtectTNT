@@ -110,7 +110,7 @@ public class TrackingListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
     public void onBombHit(ProjectileHitEvent e) {
         if (e.getHitEntity() == null) return;
-        if (!(e.getHitEntity() instanceof ExplosiveMinecart) && e.getHitEntity().getType() != EntityType.ENDER_CRYSTAL) return;
+        if (!(e.getHitEntity() instanceof ExplosiveMinecart) && e.getHitEntity().getType() != EntityType.END_CRYSTAL) return;
         String source = this.plugin.getCache().getIfPresent(e.getEntity());
         if (source == null && e.getEntity().getShooter() instanceof Player) {
             source = ((Player) e.getEntity().getShooter()).getName();
