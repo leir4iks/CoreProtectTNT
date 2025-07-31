@@ -28,12 +28,11 @@ public class TrackingListener implements Listener {
         if (e.getDamager() instanceof Player player) {
             ItemStack itemInHand = player.getInventory().getItemInMainHand();
             if (itemInHand.getType().name().equals("MACE")) {
-                this.plugin.getMaceCache().put(player.getUniqueId(), "#mace-" + player.getName());
+                this.plugin.getMaceCache().put(player.getUniqueId(), true);
             }
         }
 
-        if (!(e.getDamager() instanceof Projectile)) return;
-        Projectile projectile = (Projectile) e.getDamager();
+        if (!(e.getDamager() instanceof Projectile projectile)) return;
         ProjectileSource shooter = projectile.getShooter();
         if (shooter == null) return;
         String sourceName = this.plugin.getCache().getIfPresent(projectile);
@@ -74,8 +73,7 @@ public class TrackingListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onIgniteTNT(EntitySpawnEvent e) {
-        if (!(e.getEntity() instanceof TNTPrimed)) return;
-        TNTPrimed tntPrimed = (TNTPrimed) e.getEntity();
+        if (!(e.getEntity() instanceof TNTPrimed tntPrimed)) return;
         Entity source = tntPrimed.getSource();
         if (source != null) {
             String sourceFromCache = this.plugin.getCache().getIfPresent(source);

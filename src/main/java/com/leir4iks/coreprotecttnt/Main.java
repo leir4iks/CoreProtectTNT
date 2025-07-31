@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 public class Main extends JavaPlugin {
    private final Cache<Object, String> probablyCache;
-   private final Cache<UUID, String> maceCache;
+   private final Cache<UUID, Boolean> maceCache;
    private CoreProtectAPI api;
 
    public Main() {
@@ -60,7 +60,7 @@ public class Main extends JavaPlugin {
       return probablyCache;
    }
 
-   public Cache<UUID, String> getMaceCache() {
+   public Cache<UUID, Boolean> getMaceCache() {
       return maceCache;
    }
 }

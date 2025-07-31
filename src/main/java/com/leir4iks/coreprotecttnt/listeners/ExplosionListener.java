@@ -31,29 +31,36 @@ public class ExplosionListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
-    public void onEntityExplode(EntityExplodeEvent e) {
-        Location explosionLocation = e.getLocation();
+    private boolean isIgnorableWindBurst(EntityExplodeEvent e) {
+        if (e.getYield() == 0.0f) {
+            return true;
+        }
 
-        for (Entity nearby : explosionLocation.getWorld().getNearbyEntities(explosionLocation, 4.0, 4.0, 4.0)) {
-            if (nearby instanceof Player) {
-                UUID playerUUID = nearby.getUniqueId();
-                String maceReason = this.plugin.getMaceCache().getIfPresent(playerUUID);
-                if (maceReason != null) {
-                    e.blockList().clear();
+        if (e.getEntityType().name().equals("BLOCK_AND_ENTITY_SMASHER")) {
+            return true;
+        }
+
+        Location explosionLocation = e.getLocation();
+        for (Entity nearby : explosionLocation.getWorld().getNearbyEntities(explosionLocation, 5.0, 5.0, 5.0)) {
+            if (nearby instanceof Player player) {
+                UUID playerUUID = player.getUniqueId();
+                if (this.plugin.getMaceCache().getIfPresent(playerUUID) != null) {
                     this.plugin.getMaceCache().invalidate(playerUUID);
-                    return;
+                    return true;
                 }
             }
         }
+        return false;
+    }
 
-        if (e.getYield() == 0.0f) {
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    public void onEntityExplode(EntityExplodeEvent e) {
+        if (isIgnorableWindBurst(e)) {
             e.blockList().clear();
             return;
         }
 
-        EntityType entityType = e.getEntityType();
-        String entityName = entityType.name();
+        String entityName = e.getEntityType().name();
         if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
             e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
         }
@@ -87,7 +94,7 @@ public class ExplosionListener implements Listener {
             return;
         }
 
-        String reason = track.startsWith("#") ? track : "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
+        String reason = track.startsWith("#") ? track : "#" + e.getEntityType().name().toLowerCase(Locale.ROOT) + "-" + track;
         for (Block block : e.blockList()) {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
             this.plugin.getCache().put(block.getLocation(), reason);
