@@ -16,6 +16,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -65,7 +66,7 @@ public class ExplosionListener implements Listener {
             probablyCauses = this.plugin.getCache().getIfPresent(location.getBlock().getLocation());
         }
         if (probablyCauses == null) {
-            if (section.getBoolean("disable-unknown", true)) {
+            if (section.getBoolean("disable-unknown", false)) {
                 e.blockList().clear();
                 Util.broadcastNearPlayers(location, section.getString("alert"));
             }
@@ -112,7 +113,7 @@ public class ExplosionListener implements Listener {
             }
         }
         if (track == null) {
-            if (section.getBoolean("disable-unknown")) {
+            if (section.getBoolean("disable-unknown", false)) {
                 e.blockList().clear();
                 Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
             }
