@@ -22,6 +22,7 @@ import org.bukkit.event.player.PlayerInteractEvent;
 
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 
 public class ExplosionListener implements Listener {
     private final Main plugin;
@@ -30,27 +31,68 @@ public class ExplosionListener implements Listener {
         this.plugin = plugin;
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
-        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        Block clickedBlock = e.getClickedBlock();
-        if (clickedBlock == null) return;
-        if (clickedBlock.getBlockData() instanceof Bed bed) {
-            Location headLocation = (bed.getPart() == Bed.Part.HEAD) ? clickedBlock.getLocation() : clickedBlock.getLocation().add(bed.getFacing().getDirection());
-            Location footLocation = (bed.getPart() == Bed.Part.FOOT) ? clickedBlock.getLocation() : clickedBlock.getLocation().subtract(bed.getFacing().getDirection());
-            String reason = "#bed-" + e.getPlayer().getName();
-            this.plugin.getCache().put(headLocation.getBlock().getLocation(), reason);
-            this.plugin.getCache().put(footLocation.getBlock().getLocation(), reason);
-        } else if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
-            this.plugin.getCache().put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
-        }
-    }
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
+    public void onEntityExplode(EntityExplodeEvent e) {
+        Location explosionLocation = e.getLocation();
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
-        if (e.getRightClicked() instanceof Creeper && e.getPlayer().getInventory().getItemInMainHand().getType() == Material.FLINT_AND_STEEL) {
-            this.plugin.getCache().put(e.getRightClicked(), "#ignitecreeper-" + e.getPlayer().getName());
+        for (Entity nearby : explosionLocation.getWorld().getNearbyEntities(explosionLocation, 4.0, 4.0, 4.0)) {
+            if (nearby instanceof Player) {
+                UUID playerUUID = nearby.getUniqueId();
+                String maceReason = this.plugin.getMaceCache().getIfPresent(playerUUID);
+                if (maceReason != null) {
+                    e.blockList().clear();
+                    this.plugin.getMaceCache().invalidate(playerUUID);
+                    return;
+                }
+            }
         }
+
+        if (e.getYield() == 0.0f) {
+            e.blockList().clear();
+            return;
+        }
+
+        EntityType entityType = e.getEntityType();
+        String entityName = entityType.name();
+        if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
+            e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
+        }
+
+        if (e.blockList().isEmpty()) return;
+
+        ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "entity-explosion");
+        if (!section.getBoolean("enable", true)) return;
+
+        Entity entity = e.getEntity();
+        String track = this.plugin.getCache().getIfPresent(entity);
+        if (track == null) {
+            track = Objects.requireNonNullElseGet(this.plugin.getCache().getIfPresent(entity.getLocation()), () -> {
+                if (entity instanceof Creeper) {
+                    LivingEntity target = ((Creeper) entity).getTarget();
+                    if (target != null) return target.getName();
+                } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
+                    Entity damager = event.getDamager();
+                    String damagerTrack = this.plugin.getCache().getIfPresent(damager);
+                    return damagerTrack != null ? damagerTrack : "#" + damager.getType().name().toLowerCase(Locale.ROOT);
+                }
+                return null;
+            });
+        }
+
+        if (track == null) {
+            if (section.getBoolean("disable-unknown", false)) {
+                e.blockList().clear();
+                Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
+            }
+            return;
+        }
+
+        String reason = track.startsWith("#") ? track : "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
+        for (Block block : e.blockList()) {
+            this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+            this.plugin.getCache().put(block.getLocation(), reason);
+        }
+        this.plugin.getCache().invalidate(entity);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -78,58 +120,26 @@ public class ExplosionListener implements Listener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
-    public void onEntityExplode(EntityExplodeEvent e) {
-        if (e.getYield() == 0.0f) {
-            e.blockList().clear();
-            return;
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        Block clickedBlock = e.getClickedBlock();
+        if (clickedBlock == null) return;
+        if (clickedBlock.getBlockData() instanceof Bed bed) {
+            Location headLocation = (bed.getPart() == Bed.Part.HEAD) ? clickedBlock.getLocation() : clickedBlock.getLocation().add(bed.getFacing().getDirection());
+            Location footLocation = (bed.getPart() == Bed.Part.FOOT) ? clickedBlock.getLocation() : clickedBlock.getLocation().subtract(bed.getFacing().getDirection());
+            String reason = "#bed-" + e.getPlayer().getName();
+            this.plugin.getCache().put(headLocation.getBlock().getLocation(), reason);
+            this.plugin.getCache().put(footLocation.getBlock().getLocation(), reason);
+        } else if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
+            this.plugin.getCache().put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
         }
-        EntityType entityType = e.getEntityType();
-        String entityName = entityType.name();
-        if (entityName.equals("WIND_CHARGE") || entityName.equals("BREEZE_WIND_CHARGE")) {
-            e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
+        if (e.getRightClicked() instanceof Creeper && e.getPlayer().getInventory().getItemInMainHand().getType() == Material.FLINT_AND_STEEL) {
+            this.plugin.getCache().put(e.getRightClicked(), "#ignitecreeper-" + e.getPlayer().getName());
         }
-        if (e.blockList().isEmpty()) return;
-        ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "entity-explosion");
-        if (!section.getBoolean("enable", true)) return;
-        Entity entity = e.getEntity();
-        String track = this.plugin.getCache().getIfPresent(entity);
-        if (track == null) {
-            track = Objects.requireNonNullElseGet(this.plugin.getCache().getIfPresent(entity.getLocation()), () -> {
-                if (entity instanceof Creeper) {
-                    LivingEntity target = ((Creeper) entity).getTarget();
-                    if (target != null) {
-                        return target.getName();
-                    }
-                } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
-                    Entity damager = event.getDamager();
-                    String damagerTrack = this.plugin.getCache().getIfPresent(damager);
-                    if (damagerTrack != null) {
-                        return damagerTrack;
-                    } else {
-                        return "#" + damager.getType().name().toLowerCase(Locale.ROOT);
-                    }
-                }
-                return null;
-            });
-        }
-        if (track == null) {
-            if (section.getBoolean("disable-unknown", false)) {
-                e.blockList().clear();
-                Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
-            }
-            return;
-        }
-        String reason;
-        if (track.startsWith("#")) {
-            reason = track;
-        } else {
-            reason = "#" + entityType.name().toLowerCase(Locale.ROOT) + "-" + track;
-        }
-        for (Block block : e.blockList()) {
-            this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
-            this.plugin.getCache().put(block.getLocation(), reason);
-        }
-        this.plugin.getCache().invalidate(entity);
     }
 }

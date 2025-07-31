@@ -24,16 +24,28 @@ public class TrackingListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onMaceHit(EntityDamageByEntityEvent e) {
-        if (!(e.getDamager() instanceof Player player)) {
-            return;
+    public void onEntityHit(EntityDamageByEntityEvent e) {
+        if (e.getDamager() instanceof Player player) {
+            ItemStack itemInHand = player.getInventory().getItemInMainHand();
+            if (itemInHand.getType().name().equals("MACE")) {
+                this.plugin.getMaceCache().put(player.getUniqueId(), "#mace-" + player.getName());
+            }
         }
 
-        ItemStack itemInHand = player.getInventory().getItemInMainHand();
-        if (itemInHand.getType().name().equals("MACE")) {
-            Location impactLocation = e.getEntity().getLocation();
-            String reason = "#mace-" + player.getName();
-            this.plugin.getCache().put(impactLocation.getBlock().getLocation(), reason);
+        if (!(e.getDamager() instanceof Projectile)) return;
+        Projectile projectile = (Projectile) e.getDamager();
+        ProjectileSource shooter = projectile.getShooter();
+        if (shooter == null) return;
+        String sourceName = this.plugin.getCache().getIfPresent(projectile);
+        if (sourceName == null) {
+            if (shooter instanceof Player) {
+                sourceName = ((Player) shooter).getName();
+            } else if (shooter instanceof Entity) {
+                sourceName = ((Entity) shooter).getName();
+            }
+        }
+        if (sourceName != null) {
+            this.plugin.getCache().put(e.getEntity(), sourceName);
         }
     }
 
@@ -100,25 +112,6 @@ public class TrackingListener implements Listener {
         }
         if (damagerName != null) {
             this.plugin.getCache().put(e.getEntity(), damagerName);
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
-    public void onEntityHitByProjectile(EntityDamageByEntityEvent e) {
-        if (!(e.getDamager() instanceof Projectile)) return;
-        Projectile projectile = (Projectile) e.getDamager();
-        ProjectileSource shooter = projectile.getShooter();
-        if (shooter == null) return;
-        String sourceName = this.plugin.getCache().getIfPresent(projectile);
-        if (sourceName == null) {
-            if (shooter instanceof Player) {
-                sourceName = ((Player) shooter).getName();
-            } else if (shooter instanceof Entity) {
-                sourceName = ((Entity) shooter).getName();
-            }
-        }
-        if (sourceName != null) {
-            this.plugin.getCache().put(e.getEntity(), sourceName);
         }
     }
 
