@@ -27,10 +27,17 @@ public class Main extends JavaPlugin {
       saveDefaultConfig();
       Plugin depend = Bukkit.getPluginManager().getPlugin("CoreProtect");
       if (depend instanceof CoreProtect) {
-         this.api = ((CoreProtect) depend).getAPI();
-         registerListeners();
+         CoreProtectAPI coreProtectAPI = ((CoreProtect) depend).getAPI();
+         if (coreProtectAPI.APIVersion() >= 10) {
+            this.api = coreProtectAPI;
+            registerListeners();
+            getLogger().info("Successfully hooked into CoreProtect API v" + coreProtectAPI.APIVersion());
+         } else {
+            getLogger().severe("CoreProtect API version 10 or higher is required. Disabling plugin.");
+            this.getPluginLoader().disablePlugin(this);
+         }
       } else {
-         getLogger().severe("CoreProtect not found or invalid version. Disabling plugin.");
+         getLogger().severe("CoreProtect not found. Disabling plugin.");
          this.getPluginLoader().disablePlugin(this);
       }
    }

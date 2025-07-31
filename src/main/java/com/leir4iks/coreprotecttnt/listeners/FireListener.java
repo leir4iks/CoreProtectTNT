@@ -4,6 +4,7 @@ import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.block.BlockState;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -70,7 +71,8 @@ public class FireListener implements Listener {
         if (source != null) {
             this.fireTracker.put(e.getBlock().getLocation(), source);
             String reason = source.startsWith("#") ? source : "#fire-" + source;
-            this.plugin.getApi().logRemoval(reason, e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
+            BlockState burnedBlockState = e.getBlock().getState();
+            this.plugin.getApi().logRemoval(reason, burnedBlockState);
         } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
             Util.broadcastNearPlayers(e.getBlock().getLocation(), section.getString("alert"));
