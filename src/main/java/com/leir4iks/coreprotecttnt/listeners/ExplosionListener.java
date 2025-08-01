@@ -6,6 +6,8 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Openable;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.configuration.ConfigurationSection;
@@ -25,34 +27,30 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.logging.Logger;
 
 public class ExplosionListener implements Listener {
     private final Main plugin;
-    private final Logger logger;
 
     public ExplosionListener(Main plugin) {
         this.plugin = plugin;
-        this.logger = plugin.getLogger();
+    }
+
+    private void toggleOpenable(Block block) {
+        BlockData blockData = block.getBlockData();
+        if (blockData instanceof Openable openable) {
+            openable.setOpen(!openable.isOpen());
+            block.setBlockData(openable, true);
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onBlockExplode(BlockExplodeEvent e) {
-        boolean isDebug = plugin.getConfig().getBoolean("debug", false);
-        if (isDebug) {
-            logger.info("--- Debug: onBlockExplode ---");
-            logger.info("Block: " + e.getBlock().getType() + " | Yield: " + e.getYield());
-        }
-
         if (e.getBlock().getType() == Material.AIR) {
             Location explosionCenter = e.getBlock().getLocation();
             for (Entity nearbyEntity : explosionCenter.getWorld().getNearbyEntities(explosionCenter, 2.0, 2.0, 2.0)) {
                 if (nearbyEntity instanceof Player player) {
                     if (player.getInventory().getItemInMainHand().getType() == Material.MACE ||
                             player.getInventory().getItemInOffHand().getType() == Material.MACE) {
-                        if (isDebug) {
-                            logger.info("Mace ground smash detected. Event cancelled.");
-                        }
                         e.blockList().clear();
                         return;
                     }
@@ -86,39 +84,45 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
-        boolean isDebug = plugin.getConfig().getBoolean("debug", false);
-        if (isDebug) {
-            logger.info("--- Debug: onEntityExplode ---");
-            logger.info("Entity: " + e.getEntityType().name() + " | Yield: " + e.getYield());
-        }
-
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
-            if (e.getEntity() instanceof WindCharge windCharge) {
-                ProjectileSource shooter = windCharge.getShooter();
-                if (shooter instanceof Player) {
-                    if (isDebug) {
-                        logger.info("Mace-related Wind Charge from player detected. Event ignored.");
-                    }
-                    e.blockList().clear();
-                    return;
-                } else {
-                    String reason = "#wind_charge-" + (shooter instanceof Entity ? ((Entity) shooter).getName() : "world");
-                    List<Block> interactableBlocks = new ArrayList<>();
-                    for (Block block : e.blockList()) {
-                        if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
-                            interactableBlocks.add(block);
+            Location explosionCenter = e.getLocation();
+            for (Entity nearbyEntity : explosionCenter.getWorld().getNearbyEntities(explosionCenter, 1.5, 1.5, 1.5)) {
+                if (nearbyEntity instanceof Player player) {
+                    if (player.getInventory().getItemInMainHand().getType() == Material.MACE ||
+                            player.getInventory().getItemInOffHand().getType() == Material.MACE) {
+
+                        List<Block> affectedBlocks = new ArrayList<>(e.blockList());
+                        e.blockList().clear();
+                        for (Block block : affectedBlocks) {
+                            toggleOpenable(block);
                         }
+                        return;
                     }
-                    e.blockList().clear();
-                    for (Block block : interactableBlocks) {
-                        if (isDebug) {
-                            logger.info("Logging INTERACTION for " + block.getType() + " by " + reason);
-                        }
-                        this.plugin.getApi().logInteraction(reason, block.getLocation());
-                    }
-                    return;
                 }
             }
+
+            ProjectileSource shooter = null;
+            if (e.getEntity() instanceof WindCharge windCharge) {
+                shooter = windCharge.getShooter();
+            }
+
+            String shooterName = "world";
+            if (shooter instanceof Entity) {
+                shooterName = ((Entity) shooter).getName();
+            }
+
+            String reason = "#wind_charge-" + shooterName;
+
+            List<Block> affectedBlocks = new ArrayList<>(e.blockList());
+            e.blockList().clear();
+
+            for (Block block : affectedBlocks) {
+                if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+                    toggleOpenable(block);
+                    this.plugin.getApi().logInteraction(reason, block.getLocation());
+                }
+            }
+            return;
         }
 
         if (e.getYield() == 0.0f) {
