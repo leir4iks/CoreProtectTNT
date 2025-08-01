@@ -23,6 +23,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,6 +45,26 @@ public class ExplosionListener implements Listener {
         }
     }
 
+    private void handleInteractiveExplosion(List<Block> affectedBlocks, String reason, Location center) {
+        for (Block block : affectedBlocks) {
+            if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+                if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
+                    continue;
+                }
+                toggleOpenable(block);
+                this.plugin.getApi().logInteraction(reason, block.getLocation());
+            }
+        }
+
+        for (Entity nearbyEntity : center.getWorld().getNearbyEntities(center, 5, 5, 5)) {
+            if (nearbyEntity instanceof Item) {
+                Item item = (Item) nearbyEntity;
+                Vector direction = item.getLocation().toVector().subtract(center.toVector()).normalize();
+                item.setVelocity(item.getVelocity().add(direction.multiply(0.8)));
+            }
+        }
+    }
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onBlockExplode(BlockExplodeEvent e) {
         if (e.getBlock().getType() == Material.AIR) {
@@ -55,17 +76,7 @@ public class ExplosionListener implements Listener {
 
                         List<Block> affectedBlocks = new ArrayList<>(e.blockList());
                         e.blockList().clear();
-
-                        String reason = "#mace-" + player.getName();
-                        for (Block block : affectedBlocks) {
-                            if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
-                                if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
-                                    continue;
-                                }
-                                toggleOpenable(block);
-                                this.plugin.getApi().logInteraction(reason, block.getLocation());
-                            }
-                        }
+                        handleInteractiveExplosion(affectedBlocks, "#mace-" + player.getName(), explosionCenter);
                         return;
                     }
                 }
@@ -99,10 +110,6 @@ public class ExplosionListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
-            List<Block> affectedBlocks = new ArrayList<>(e.blockList());
-            e.blockList().clear();
-
-            String reason;
             String shooterName = this.plugin.getCache().getIfPresent(e.getEntity().getUniqueId());
             if (shooterName == null) shooterName = "world";
 
@@ -118,17 +125,10 @@ public class ExplosionListener implements Listener {
                 }
             }
 
-            reason = (isMace ? "#mace-" : "#wind_charge-") + shooterName;
-
-            for (Block block : affectedBlocks) {
-                if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
-                    if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
-                        continue;
-                    }
-                    toggleOpenable(block);
-                    this.plugin.getApi().logInteraction(reason, block.getLocation());
-                }
-            }
+            String reason = (isMace ? "#mace-" : "#wind_charge-") + shooterName;
+            List<Block> affectedBlocks = new ArrayList<>(e.blockList());
+            e.blockList().clear();
+            handleInteractiveExplosion(affectedBlocks, reason, explosionCenter);
             return;
         }
 
