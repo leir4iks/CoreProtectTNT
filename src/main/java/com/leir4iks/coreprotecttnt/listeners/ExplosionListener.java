@@ -51,7 +51,17 @@ public class ExplosionListener implements Listener {
                 if (nearbyEntity instanceof Player player) {
                     if (player.getInventory().getItemInMainHand().getType() == Material.MACE ||
                             player.getInventory().getItemInOffHand().getType() == Material.MACE) {
+
+                        List<Block> affectedBlocks = new ArrayList<>(e.blockList());
                         e.blockList().clear();
+
+                        String reason = "mace-" + player.getName();
+                        for (Block block : affectedBlocks) {
+                            if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+                                toggleOpenable(block);
+                                this.plugin.getApi().logInteraction(reason, block.getLocation());
+                            }
+                        }
                         return;
                     }
                 }
@@ -93,8 +103,12 @@ public class ExplosionListener implements Listener {
 
                         List<Block> affectedBlocks = new ArrayList<>(e.blockList());
                         e.blockList().clear();
+                        String reason = "mace-" + player.getName();
                         for (Block block : affectedBlocks) {
-                            toggleOpenable(block);
+                            if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+                                toggleOpenable(block);
+                                this.plugin.getApi().logInteraction(reason, block.getLocation());
+                            }
                         }
                         return;
                     }
@@ -111,7 +125,7 @@ public class ExplosionListener implements Listener {
                 shooterName = ((Entity) shooter).getName();
             }
 
-            String reason = "#wind_charge-" + shooterName;
+            String reason = "wind_charge-" + shooterName;
 
             List<Block> affectedBlocks = new ArrayList<>(e.blockList());
             e.blockList().clear();
