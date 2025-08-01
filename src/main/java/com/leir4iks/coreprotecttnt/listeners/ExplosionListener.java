@@ -35,11 +35,6 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
-        if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("--- Debug: ExplosionListener@onPlayerInteractBedOrRespawnAnchorExplosion ---");
-            logger.info("Player: " + e.getPlayer().getName() + " | Action: " + e.getAction() + " | Block: " + (e.getClickedBlock() != null ? e.getClickedBlock().getType() : "null"));
-        }
-
         if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         Block clickedBlock = e.getClickedBlock();
         if (clickedBlock == null) return;
@@ -56,29 +51,45 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
-        if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("--- Debug: ExplosionListener@onPlayerInteractCreeper ---");
-            logger.info("Player: " + e.getPlayer().getName() + " | Right-Clicked: " + e.getRightClicked().getType());
-        }
-
         if (e.getRightClicked() instanceof Creeper && e.getPlayer().getInventory().getItemInMainHand().getType() == Material.FLINT_AND_STEEL) {
             this.plugin.getCache().put(e.getRightClicked(), "#ignitecreeper-" + e.getPlayer().getName());
         }
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onBlockExplode(BlockExplodeEvent e) {
-        if (plugin.getConfig().getBoolean("debug", false)) {
+        boolean isDebug = plugin.getConfig().getBoolean("debug", false);
+        if (isDebug) {
             logger.info("--- Debug: ExplosionListener@onBlockExplode ---");
             logger.info("Block: " + e.getBlock().getType());
             logger.info("Yield: " + e.getYield());
             logger.info("BlockList Size: " + e.blockList().size());
         }
 
+        if (e.getBlock().getType() == Material.AIR) {
+            Location explosionCenter = e.getBlock().getLocation();
+            for (Entity nearbyEntity : explosionCenter.getWorld().getNearbyEntities(explosionCenter, 2.0, 2.0, 2.0)) {
+                if (nearbyEntity instanceof Player player) {
+                    if (isDebug) {
+                        logger.info("Found nearby player for AIR explosion: " + player.getName());
+                    }
+                    if (player.getInventory().getItemInMainHand().getType() == Material.MACE ||
+                            player.getInventory().getItemInOffHand().getType() == Material.MACE) {
+                        if (isDebug) {
+                            logger.info("Mace confirmed. Cancelling event.");
+                        }
+                        e.blockList().clear();
+                        return;
+                    }
+                }
+            }
+        }
+
         if (e.getYield() == 0.0f) {
             e.blockList().clear();
             return;
         }
+
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "block-explosion");
         if (!section.getBoolean("enable", true)) return;
         Location location = e.getBlock().getLocation();
@@ -108,16 +119,6 @@ public class ExplosionListener implements Listener {
         }
 
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
-            Location explosionCenter = e.getLocation();
-            for (Entity nearbyEntity : explosionCenter.getWorld().getNearbyEntities(explosionCenter, 1.5, 1.5, 1.5)) {
-                if (nearbyEntity instanceof Player player) {
-                    if (player.getInventory().getItemInMainHand().getType() == Material.MACE ||
-                            player.getInventory().getItemInOffHand().getType() == Material.MACE) {
-                        e.blockList().clear();
-                        return;
-                    }
-                }
-            }
             e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
         }
 
