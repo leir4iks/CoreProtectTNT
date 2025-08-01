@@ -24,6 +24,7 @@ import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
@@ -61,7 +62,8 @@ public class ExplosionListener implements Listener {
             }
         }
 
-        for (Item item : center.getWorld().getEntitiesByClass(Item.class, center.getBoundingBox().expand(INTERACTIVE_EXPLOSION_RADIUS))) {
+        BoundingBox searchBox = BoundingBox.of(center, INTERACTIVE_EXPLOSION_RADIUS, INTERACTIVE_EXPLOSION_RADIUS, INTERACTIVE_EXPLOSION_RADIUS);
+        for (Item item : center.getWorld().getEntitiesByClass(Item.class, searchBox)) {
             Vector direction = item.getLocation().toVector().subtract(center.toVector()).normalize();
             item.setVelocity(item.getVelocity().add(direction.multiply(INTERACTIVE_EXPLOSION_ITEM_VELOCITY_MULTIPLIER)));
         }
