@@ -19,19 +19,48 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.Locale;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 public class ExplosionListener implements Listener {
     private final Main plugin;
+    private final Logger logger;
 
     public ExplosionListener(Main plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getLogger();
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("--- CoreProtectTNT Debug: EntityExplodeEvent ---");
+            logger.info("Entity: " + e.getEntityType().name());
+            logger.info("Yield: " + e.getYield());
+            logger.info("BlockList Size: " + e.blockList().size());
+            logger.info("Location: " + e.getLocation().toString());
+
+            if (e.getEntity() instanceof Projectile projectile) {
+                ProjectileSource shooter = projectile.getShooter();
+                logger.info("Projectile Shooter: " + (shooter != null ? shooter.toString() : "null"));
+            } else {
+                logger.info("Entity is not a projectile.");
+            }
+
+            logger.info("Scanning nearby players (5 blocks)...");
+            for (Entity nearbyEntity : e.getLocation().getWorld().getNearbyEntities(e.getLocation(), 5.0, 5.0, 5.0)) {
+                if (nearbyEntity instanceof Player player) {
+                    logger.info("Found player: " + player.getName() +
+                            " | Main Hand: " + player.getInventory().getItemInMainHand().getType() +
+                            " | Off Hand: " + player.getInventory().getItemInOffHand().getType());
+                }
+            }
+            logger.info("--- End Debug ---");
+        }
+
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
             Location explosionCenter = e.getLocation();
 
