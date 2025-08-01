@@ -6,9 +6,11 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Tag;
 import org.bukkit.block.Block;
+import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Openable;
 import org.bukkit.block.data.type.Bed;
+import org.bukkit.block.data.type.Door;
 import org.bukkit.block.data.type.RespawnAnchor;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
@@ -55,9 +57,12 @@ public class ExplosionListener implements Listener {
                         List<Block> affectedBlocks = new ArrayList<>(e.blockList());
                         e.blockList().clear();
 
-                        String reason = "mace-" + player.getName();
+                        String reason = "#mace-" + player.getName();
                         for (Block block : affectedBlocks) {
                             if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+                                if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.UPPER) {
+                                    continue;
+                                }
                                 toggleOpenable(block);
                                 this.plugin.getApi().logInteraction(reason, block.getLocation());
                             }
@@ -103,9 +108,12 @@ public class ExplosionListener implements Listener {
 
                         List<Block> affectedBlocks = new ArrayList<>(e.blockList());
                         e.blockList().clear();
-                        String reason = "mace-" + player.getName();
+                        String reason = "#mace-" + player.getName();
                         for (Block block : affectedBlocks) {
                             if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+                                if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.UPPER) {
+                                    continue;
+                                }
                                 toggleOpenable(block);
                                 this.plugin.getApi().logInteraction(reason, block.getLocation());
                             }
@@ -125,13 +133,16 @@ public class ExplosionListener implements Listener {
                 shooterName = ((Entity) shooter).getName();
             }
 
-            String reason = "wind_charge-" + shooterName;
+            String reason = "#wind_charge-" + shooterName;
 
             List<Block> affectedBlocks = new ArrayList<>(e.blockList());
             e.blockList().clear();
 
             for (Block block : affectedBlocks) {
                 if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+                    if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.UPPER) {
+                        continue;
+                    }
                     toggleOpenable(block);
                     this.plugin.getApi().logInteraction(reason, block.getLocation());
                 }
