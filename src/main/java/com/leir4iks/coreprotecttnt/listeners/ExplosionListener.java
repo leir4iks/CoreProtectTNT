@@ -62,7 +62,7 @@ public class ExplosionListener implements Listener {
                         e.blockList().clear();
 
                         String reason = "#mace-" + player.getName();
-                        if (isDebug) logger.info("Mace ground smash by " + player.getName() + " detected. Processing interactions.");
+                        if (isDebug) logger.info("Mace ground smash by " + player.getName() + " detected. Manually processing interactions and cancelling event.");
 
                         for (Block block : affectedBlocks) {
                             if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
@@ -73,6 +73,7 @@ public class ExplosionListener implements Listener {
                                 this.plugin.getApi().logInteraction(reason, block.getLocation());
                             }
                         }
+                        e.setCancelled(true);
                         return;
                     }
                 }
@@ -108,26 +109,28 @@ public class ExplosionListener implements Listener {
         boolean isDebug = plugin.getConfig().getBoolean("debug", false);
 
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
-            String reason = null;
+            String reason;
+            boolean isMace = false;
 
             Location explosionCenter = e.getLocation();
             for (Entity nearbyEntity : explosionCenter.getWorld().getNearbyEntities(explosionCenter, 1.5, 1.5, 1.5)) {
                 if (nearbyEntity instanceof Player player) {
                     if (player.getInventory().getItemInMainHand().getType() == Material.MACE ||
                             player.getInventory().getItemInOffHand().getType() == Material.MACE) {
-                        reason = "#mace-" + player.getName();
-                        if (isDebug) logger.info("Mace entity smash by " + player.getName() + " detected.");
+                        isMace = true;
                         break;
                     }
                 }
             }
 
-            if (reason == null) {
-                ProjectileSource shooter = null;
-                if (e.getEntity() instanceof WindCharge windCharge) {
-                    shooter = windCharge.getShooter();
-                }
-                String shooterName = (shooter instanceof Entity) ? ((Entity) shooter).getName() : "world";
+            if (isMace) {
+                String playerName = this.plugin.getCache().getIfPresent(e.getEntity().getUniqueId());
+                if (playerName == null) playerName = "Unknown";
+                reason = "#mace-" + playerName;
+                if (isDebug) logger.info("Mace entity smash by " + playerName + " detected.");
+            } else {
+                String shooterName = this.plugin.getCache().getIfPresent(e.getEntity().getUniqueId());
+                if (shooterName == null) shooterName = "world";
                 reason = "#wind_charge-" + shooterName;
                 if (isDebug) logger.info("Wind Charge from " + shooterName + " detected.");
             }
@@ -144,6 +147,7 @@ public class ExplosionListener implements Listener {
                     this.plugin.getApi().logInteraction(reason, block.getLocation());
                 }
             }
+            e.setCancelled(true);
             return;
         }
 
@@ -160,16 +164,12 @@ public class ExplosionListener implements Listener {
         Entity entity = e.getEntity();
         String track = this.plugin.getCache().getIfPresent(entity.getUniqueId());
 
-        if (track == null) {
-            track = this.plugin.getCache().getIfPresent(entity.getLocation());
-        }
+        if (track == null) track = this.plugin.getCache().getIfPresent(entity.getLocation());
 
         if (track == null) {
             if (entity instanceof Creeper) {
                 LivingEntity target = ((Creeper) entity).getTarget();
-                if (target != null) {
-                    track = target.getName();
-                }
+                if (target != null) track = target.getName();
             } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
                 Entity damager = event.getDamager();
                 String damagerTrack = this.plugin.getCache().getIfPresent(damager.getUniqueId());
