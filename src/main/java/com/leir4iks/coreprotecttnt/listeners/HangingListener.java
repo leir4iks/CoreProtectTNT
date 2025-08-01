@@ -15,16 +15,24 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Locale;
+import java.util.logging.Logger;
 
 public class HangingListener implements Listener {
     private final Main plugin;
+    private final Logger logger;
 
     public HangingListener(Main plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getLogger();
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onClickItemFrame(PlayerInteractEntityEvent e) {
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("--- Debug: HangingListener@onClickItemFrame ---");
+            logger.info("Player: " + e.getPlayer().getName() + " | Clicked: " + e.getRightClicked().getType());
+        }
+
         if (!(e.getRightClicked() instanceof ItemFrame)) return;
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "itemframe");
         if (!section.getBoolean("enable", true)) return;
@@ -47,6 +55,11 @@ public class HangingListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onHangingBreak(HangingBreakEvent e) {
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("--- Debug: HangingListener@onHangingBreak ---");
+            logger.info("Entity: " + e.getEntity().getType() + " | Cause: " + e.getCause());
+        }
+
         if (e.getCause() == HangingBreakEvent.RemoveCause.ENTITY) return;
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "hanging");
         if (!section.getBoolean("enable", true)) return;
@@ -71,6 +84,11 @@ public class HangingListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onHangingHit(HangingBreakByEntityEvent e) {
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("--- Debug: HangingListener@onHangingHit ---");
+            logger.info("Entity: " + e.getEntity().getType() + " | Remover: " + (e.getRemover() != null ? e.getRemover().getType() : "null"));
+        }
+
         if (!(e.getEntity() instanceof ItemFrame) && !(e.getEntity() instanceof Painting)) return;
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), e.getEntity() instanceof ItemFrame ? "itemframe" : "hanging");
         if (!section.getBoolean("enable", true)) return;
