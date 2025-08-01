@@ -19,7 +19,10 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.projectiles.ProjectileSource;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 import java.util.logging.Logger;
@@ -33,50 +36,22 @@ public class ExplosionListener implements Listener {
         this.logger = plugin.getLogger();
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
-        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
-        Block clickedBlock = e.getClickedBlock();
-        if (clickedBlock == null) return;
-        if (clickedBlock.getBlockData() instanceof Bed bed) {
-            Location headLocation = (bed.getPart() == Bed.Part.HEAD) ? clickedBlock.getLocation() : clickedBlock.getLocation().add(bed.getFacing().getDirection());
-            Location footLocation = (bed.getPart() == Bed.Part.FOOT) ? clickedBlock.getLocation() : clickedBlock.getLocation().subtract(bed.getFacing().getDirection());
-            String reason = "#bed-" + e.getPlayer().getName();
-            this.plugin.getCache().put(headLocation.getBlock().getLocation(), reason);
-            this.plugin.getCache().put(footLocation.getBlock().getLocation(), reason);
-        } else if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
-            this.plugin.getCache().put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
-        if (e.getRightClicked() instanceof Creeper && e.getPlayer().getInventory().getItemInMainHand().getType() == Material.FLINT_AND_STEEL) {
-            this.plugin.getCache().put(e.getRightClicked(), "#ignitecreeper-" + e.getPlayer().getName());
-        }
-    }
-
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onBlockExplode(BlockExplodeEvent e) {
         boolean isDebug = plugin.getConfig().getBoolean("debug", false);
         if (isDebug) {
-            logger.info("--- Debug: ExplosionListener@onBlockExplode ---");
-            logger.info("Block: " + e.getBlock().getType());
-            logger.info("Yield: " + e.getYield());
-            logger.info("BlockList Size: " + e.blockList().size());
+            logger.info("--- Debug: onBlockExplode ---");
+            logger.info("Block: " + e.getBlock().getType() + " | Yield: " + e.getYield());
         }
 
         if (e.getBlock().getType() == Material.AIR) {
             Location explosionCenter = e.getBlock().getLocation();
             for (Entity nearbyEntity : explosionCenter.getWorld().getNearbyEntities(explosionCenter, 2.0, 2.0, 2.0)) {
                 if (nearbyEntity instanceof Player player) {
-                    if (isDebug) {
-                        logger.info("Found nearby player for AIR explosion: " + player.getName());
-                    }
                     if (player.getInventory().getItemInMainHand().getType() == Material.MACE ||
                             player.getInventory().getItemInOffHand().getType() == Material.MACE) {
                         if (isDebug) {
-                            logger.info("Mace confirmed. Cancelling event.");
+                            logger.info("Mace ground smash detected. Event cancelled.");
                         }
                         e.blockList().clear();
                         return;
@@ -111,15 +86,39 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
-        if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("--- Debug: ExplosionListener@onEntityExplode ---");
-            logger.info("Entity: " + e.getEntityType().name());
-            logger.info("Yield: " + e.getYield());
-            logger.info("BlockList Size: " + e.blockList().size());
+        boolean isDebug = plugin.getConfig().getBoolean("debug", false);
+        if (isDebug) {
+            logger.info("--- Debug: onEntityExplode ---");
+            logger.info("Entity: " + e.getEntityType().name() + " | Yield: " + e.getYield());
         }
 
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
-            e.blockList().removeIf(block -> !Tag.DOORS.isTagged(block.getType()) && !Tag.TRAPDOORS.isTagged(block.getType()));
+            if (e.getEntity() instanceof WindCharge windCharge) {
+                ProjectileSource shooter = windCharge.getShooter();
+                if (shooter instanceof Player) {
+                    if (isDebug) {
+                        logger.info("Mace-related Wind Charge from player detected. Event ignored.");
+                    }
+                    e.blockList().clear();
+                    return;
+                } else {
+                    String reason = "#wind_charge-" + (shooter instanceof Entity ? ((Entity) shooter).getName() : "world");
+                    List<Block> interactableBlocks = new ArrayList<>();
+                    for (Block block : e.blockList()) {
+                        if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
+                            interactableBlocks.add(block);
+                        }
+                    }
+                    e.blockList().clear();
+                    for (Block block : interactableBlocks) {
+                        if (isDebug) {
+                            logger.info("Logging INTERACTION for " + block.getType() + " by " + reason);
+                        }
+                        this.plugin.getApi().logInteraction(reason, block.getLocation());
+                    }
+                    return;
+                }
+            }
         }
 
         if (e.getYield() == 0.0f) {
@@ -162,5 +161,28 @@ public class ExplosionListener implements Listener {
             this.plugin.getCache().put(block.getLocation(), reason);
         }
         this.plugin.getCache().invalidate(entity);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerInteractBedOrRespawnAnchorExplosion(PlayerInteractEvent e) {
+        if (e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+        Block clickedBlock = e.getClickedBlock();
+        if (clickedBlock == null) return;
+        if (clickedBlock.getBlockData() instanceof Bed bed) {
+            Location headLocation = (bed.getPart() == Bed.Part.HEAD) ? clickedBlock.getLocation() : clickedBlock.getLocation().add(bed.getFacing().getDirection());
+            Location footLocation = (bed.getPart() == Bed.Part.FOOT) ? clickedBlock.getLocation() : clickedBlock.getLocation().subtract(bed.getFacing().getDirection());
+            String reason = "#bed-" + e.getPlayer().getName();
+            this.plugin.getCache().put(headLocation.getBlock().getLocation(), reason);
+            this.plugin.getCache().put(footLocation.getBlock().getLocation(), reason);
+        } else if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
+            this.plugin.getCache().put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
+        if (e.getRightClicked() instanceof Creeper && e.getPlayer().getInventory().getItemInMainHand().getType() == Material.FLINT_AND_STEEL) {
+            this.plugin.getCache().put(e.getRightClicked(), "#ignitecreeper-" + e.getPlayer().getName());
+        }
     }
 }
