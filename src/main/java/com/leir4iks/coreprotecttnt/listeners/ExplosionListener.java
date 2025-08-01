@@ -23,7 +23,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -122,32 +121,6 @@ public class ExplosionListener implements Listener {
                     }
                 }
             }
-
-            ProjectileSource shooter = null;
-            if (e.getEntity() instanceof WindCharge windCharge) {
-                shooter = windCharge.getShooter();
-            }
-
-            String shooterName = "world";
-            if (shooter instanceof Entity) {
-                shooterName = ((Entity) shooter).getName();
-            }
-
-            String reason = "#wind_charge-" + shooterName;
-
-            List<Block> affectedBlocks = new ArrayList<>(e.blockList());
-            e.blockList().clear();
-
-            for (Block block : affectedBlocks) {
-                if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
-                    if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
-                        continue;
-                    }
-                    toggleOpenable(block);
-                    this.plugin.getApi().logInteraction(reason, block.getLocation());
-                }
-            }
-            return;
         }
 
         if (e.getYield() == 0.0f) {
@@ -161,19 +134,27 @@ public class ExplosionListener implements Listener {
         if (!section.getBoolean("enable", true)) return;
 
         Entity entity = e.getEntity();
-        String track = this.plugin.getCache().getIfPresent(entity);
+        String track = this.plugin.getCache().getIfPresent(entity.getUniqueId());
+
         if (track == null) {
-            track = Objects.requireNonNullElseGet(this.plugin.getCache().getIfPresent(entity.getLocation()), () -> {
-                if (entity instanceof Creeper) {
-                    LivingEntity target = ((Creeper) entity).getTarget();
-                    if (target != null) return target.getName();
-                } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
-                    Entity damager = event.getDamager();
-                    String damagerTrack = this.plugin.getCache().getIfPresent(damager);
-                    return damagerTrack != null ? damagerTrack : "#" + damager.getType().name().toLowerCase(Locale.ROOT);
+            track = this.plugin.getCache().getIfPresent(entity.getLocation());
+        }
+
+        if (track == null) {
+            if (entity instanceof Creeper) {
+                LivingEntity target = ((Creeper) entity).getTarget();
+                if (target != null) {
+                    track = target.getName();
                 }
-                return null;
-            });
+            } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
+                Entity damager = event.getDamager();
+                String damagerTrack = this.plugin.getCache().getIfPresent(damager.getUniqueId());
+                if (damagerTrack != null) {
+                    track = damagerTrack;
+                } else {
+                    track = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
+                }
+            }
         }
 
         if (track == null) {
@@ -189,7 +170,7 @@ public class ExplosionListener implements Listener {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
             this.plugin.getCache().put(block.getLocation(), reason);
         }
-        this.plugin.getCache().invalidate(entity);
+        this.plugin.getCache().invalidate(entity.getUniqueId());
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -211,7 +192,7 @@ public class ExplosionListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
         if (e.getRightClicked() instanceof Creeper && e.getPlayer().getInventory().getItemInMainHand().getType() == Material.FLINT_AND_STEEL) {
-            this.plugin.getCache().put(e.getRightClicked(), "#ignitecreeper-" + e.getPlayer().getName());
+            this.plugin.getCache().put(e.getRightClicked().getUniqueId(), "#ignitecreeper-" + e.getPlayer().getName());
         }
     }
 }
