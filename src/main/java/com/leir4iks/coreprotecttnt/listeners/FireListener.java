@@ -20,16 +20,13 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.logging.Logger;
 
 public class FireListener implements Listener {
     private final Main plugin;
-    private final Logger logger;
     private final ConcurrentMap<UUID, FireSource> activeFires = new ConcurrentHashMap<>();
 
     public FireListener(Main plugin) {
         this.plugin = plugin;
-        this.logger = plugin.getLogger();
         startCleanupTask();
     }
 
@@ -52,11 +49,6 @@ public class FireListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockIgnite(BlockIgniteEvent e) {
-        if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("--- Debug: FireListener@onBlockIgnite ---");
-            logger.info("Block: " + e.getBlock().getType() + " | Cause: " + e.getCause() + " | Igniting Entity: " + (e.getIgnitingEntity() != null ? e.getIgnitingEntity().getType() : "null"));
-        }
-
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "fire");
         if (!section.getBoolean("enable", true)) return;
 
@@ -79,11 +71,6 @@ public class FireListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBurn(BlockBurnEvent e) {
-        if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("--- Debug: FireListener@onBlockBurn ---");
-            logger.info("Block: " + e.getBlock().getType() + " | Igniting Block: " + (e.getIgnitingBlock() != null ? e.getIgnitingBlock().getType() : "null"));
-        }
-
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "fire");
         if (!section.getBoolean("enable", true)) return;
 
@@ -103,7 +90,7 @@ public class FireListener implements Listener {
             return player.getName();
         }
         if (ignitingEntity != null) {
-            String fromCache = this.plugin.getCache().getIfPresent(ignitingEntity);
+            String fromCache = this.plugin.getCache().getIfPresent(ignitingEntity.getUniqueId());
             return fromCache != null ? fromCache : "#" + ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
         }
         if (ignitingBlock != null) {

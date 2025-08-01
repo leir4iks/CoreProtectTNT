@@ -55,7 +55,7 @@ public class TrackingListener implements Listener {
         if (!(e.getEntity() instanceof TNTPrimed tntPrimed)) return;
         Entity source = tntPrimed.getSource();
         if (source != null) {
-            String sourceFromCache = this.plugin.getCache().getIfPresent(source);
+            String sourceFromCache = this.plugin.getCache().getIfPresent(source.getUniqueId());
             if (sourceFromCache != null) {
                 this.plugin.getCache().put(tntPrimed.getUniqueId(), sourceFromCache);
                 return;
