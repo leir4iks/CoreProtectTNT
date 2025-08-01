@@ -23,21 +23,17 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
-import java.util.logging.Logger;
 
 public class ExplosionListener implements Listener {
     private final Main plugin;
-    private final Logger logger;
 
     public ExplosionListener(Main plugin) {
         this.plugin = plugin;
-        this.logger = plugin.getLogger();
     }
 
     private void toggleOpenable(Block block) {
@@ -50,7 +46,6 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onBlockExplode(BlockExplodeEvent e) {
-        boolean isDebug = plugin.getConfig().getBoolean("debug", false);
         if (e.getBlock().getType() == Material.AIR) {
             Location explosionCenter = e.getBlock().getLocation();
             for (Entity nearbyEntity : explosionCenter.getWorld().getNearbyEntities(explosionCenter, 2.0, 2.0, 2.0)) {
@@ -62,8 +57,6 @@ public class ExplosionListener implements Listener {
                         e.blockList().clear();
 
                         String reason = "#mace-" + player.getName();
-                        if (isDebug) logger.info("Mace ground smash by " + player.getName() + " detected. Manually processing interactions and cancelling event.");
-
                         for (Block block : affectedBlocks) {
                             if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
                                 if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
@@ -73,7 +66,6 @@ public class ExplosionListener implements Listener {
                                 this.plugin.getApi().logInteraction(reason, block.getLocation());
                             }
                         }
-                        e.setCancelled(true);
                         return;
                     }
                 }
@@ -106,15 +98,18 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
-        boolean isDebug = plugin.getConfig().getBoolean("debug", false);
-
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
-            String reason;
-            boolean isMace = false;
+            List<Block> affectedBlocks = new ArrayList<>(e.blockList());
+            e.blockList().clear();
 
+            String reason;
+            String shooterName = this.plugin.getCache().getIfPresent(e.getEntity().getUniqueId());
+            if (shooterName == null) shooterName = "world";
+
+            boolean isMace = false;
             Location explosionCenter = e.getLocation();
             for (Entity nearbyEntity : explosionCenter.getWorld().getNearbyEntities(explosionCenter, 1.5, 1.5, 1.5)) {
-                if (nearbyEntity instanceof Player player) {
+                if (nearbyEntity instanceof Player player && player.getName().equals(shooterName)) {
                     if (player.getInventory().getItemInMainHand().getType() == Material.MACE ||
                             player.getInventory().getItemInOffHand().getType() == Material.MACE) {
                         isMace = true;
@@ -123,20 +118,7 @@ public class ExplosionListener implements Listener {
                 }
             }
 
-            if (isMace) {
-                String playerName = this.plugin.getCache().getIfPresent(e.getEntity().getUniqueId());
-                if (playerName == null) playerName = "Unknown";
-                reason = "#mace-" + playerName;
-                if (isDebug) logger.info("Mace entity smash by " + playerName + " detected.");
-            } else {
-                String shooterName = this.plugin.getCache().getIfPresent(e.getEntity().getUniqueId());
-                if (shooterName == null) shooterName = "world";
-                reason = "#wind_charge-" + shooterName;
-                if (isDebug) logger.info("Wind Charge from " + shooterName + " detected.");
-            }
-
-            List<Block> affectedBlocks = new ArrayList<>(e.blockList());
-            e.blockList().clear();
+            reason = (isMace ? "#mace-" : "#wind_charge-") + shooterName;
 
             for (Block block : affectedBlocks) {
                 if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
@@ -147,7 +129,6 @@ public class ExplosionListener implements Listener {
                     this.plugin.getApi().logInteraction(reason, block.getLocation());
                 }
             }
-            e.setCancelled(true);
             return;
         }
 
