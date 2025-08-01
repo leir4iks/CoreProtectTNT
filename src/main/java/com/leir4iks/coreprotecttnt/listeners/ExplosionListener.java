@@ -60,7 +60,7 @@ public class ExplosionListener implements Listener {
                         String reason = "#mace-" + player.getName();
                         for (Block block : affectedBlocks) {
                             if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
-                                if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.UPPER) {
+                                if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
                                     continue;
                                 }
                                 toggleOpenable(block);
@@ -111,7 +111,7 @@ public class ExplosionListener implements Listener {
                         String reason = "#mace-" + player.getName();
                         for (Block block : affectedBlocks) {
                             if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
-                                if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.UPPER) {
+                                if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
                                     continue;
                                 }
                                 toggleOpenable(block);
@@ -140,7 +140,7 @@ public class ExplosionListener implements Listener {
 
             for (Block block : affectedBlocks) {
                 if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
-                    if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.UPPER) {
+                    if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
                         continue;
                     }
                     toggleOpenable(block);
