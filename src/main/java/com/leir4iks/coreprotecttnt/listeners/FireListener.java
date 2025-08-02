@@ -20,13 +20,16 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Logger;
 
 public class FireListener implements Listener {
     private final Main plugin;
+    private final Logger logger;
     private final ConcurrentMap<UUID, FireSource> activeFires = new ConcurrentHashMap<>();
 
     public FireListener(Main plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getLogger();
         startCleanupTask();
     }
 
@@ -34,13 +37,11 @@ public class FireListener implements Listener {
         String cause;
         BoundingBox boundingBox;
         long lastActivity;
-
         FireSource(String cause, Location origin) {
             this.cause = cause;
             this.boundingBox = new BoundingBox(origin.getX(), origin.getY(), origin.getZ(), origin.getX() + 1, origin.getY() + 1, origin.getZ() + 1);
             this.lastActivity = System.currentTimeMillis();
         }
-
         void expandTo(Location loc) {
             this.boundingBox.expand(loc.getX(), loc.getY(), loc.getZ());
             this.lastActivity = System.currentTimeMillis();
@@ -49,6 +50,10 @@ public class FireListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockIgnite(BlockIgniteEvent e) {
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("[Debug] Event: BlockIgniteEvent | Block: " + e.getBlock().getType() + " | Cause: " + e.getCause());
+        }
+
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "fire");
         if (!section.getBoolean("enable", true)) return;
 
@@ -71,6 +76,10 @@ public class FireListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBurn(BlockBurnEvent e) {
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("[Debug] Event: BlockBurnEvent | Block: " + e.getBlock().getType());
+        }
+
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "fire");
         if (!section.getBoolean("enable", true)) return;
 
@@ -86,16 +95,12 @@ public class FireListener implements Listener {
     }
 
     private String determineInitialCause(Player player, Block ignitingBlock, org.bukkit.entity.Entity ignitingEntity) {
-        if (player != null) {
-            return player.getName();
-        }
+        if (player != null) return player.getName();
         if (ignitingEntity != null) {
             String fromCache = this.plugin.getCache().getIfPresent(ignitingEntity.getUniqueId());
             return fromCache != null ? fromCache : "#" + ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
         }
-        if (ignitingBlock != null) {
-            return this.plugin.getCache().getIfPresent(ignitingBlock.getLocation());
-        }
+        if (ignitingBlock != null) return this.plugin.getCache().getIfPresent(ignitingBlock.getLocation());
         return null;
     }
 
@@ -120,6 +125,5 @@ public class FireListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onFireFade(BlockFadeEvent e) {
-    }
+    public void onFireFade(BlockFadeEvent e) {}
 }

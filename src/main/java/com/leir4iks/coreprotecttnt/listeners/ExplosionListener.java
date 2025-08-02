@@ -30,9 +30,11 @@ import org.bukkit.util.Vector;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Logger;
 
 public class ExplosionListener implements Listener {
     private final Main plugin;
+    private final Logger logger;
 
     private static final double INTERACTIVE_EXPLOSION_RADIUS = 5.0;
     private static final double INTERACTIVE_EXPLOSION_ITEM_VELOCITY_MULTIPLIER = 0.8;
@@ -41,6 +43,7 @@ public class ExplosionListener implements Listener {
 
     public ExplosionListener(Main plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getLogger();
     }
 
     private void toggleOpenable(Block block) {
@@ -63,9 +66,11 @@ public class ExplosionListener implements Listener {
         }
 
         BoundingBox searchBox = BoundingBox.of(center, INTERACTIVE_EXPLOSION_RADIUS, INTERACTIVE_EXPLOSION_RADIUS, INTERACTIVE_EXPLOSION_RADIUS);
-        for (Item item : center.getWorld().getEntitiesByClass(Item.class, searchBox)) {
-            Vector direction = item.getLocation().toVector().subtract(center.toVector()).normalize();
-            item.setVelocity(item.getVelocity().add(direction.multiply(INTERACTIVE_EXPLOSION_ITEM_VELOCITY_MULTIPLIER)));
+        for (Entity entity : center.getWorld().getNearbyEntities(searchBox)) {
+            if (entity instanceof Item item) {
+                Vector direction = item.getLocation().toVector().subtract(center.toVector()).normalize();
+                item.setVelocity(item.getVelocity().add(direction.multiply(INTERACTIVE_EXPLOSION_ITEM_VELOCITY_MULTIPLIER)));
+            }
         }
     }
 
@@ -76,11 +81,17 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onBlockExplode(BlockExplodeEvent e) {
+        boolean isDebug = plugin.getConfig().getBoolean("debug", false);
+        if (isDebug) {
+            logger.info("[Debug] Event: BlockExplodeEvent | Block: " + e.getBlock().getType() + " | Yield: " + e.getYield());
+        }
+
         if (e.getBlock().getType() == Material.AIR) {
             Location explosionCenter = e.getBlock().getLocation();
             for (Player player : explosionCenter.getWorld().getPlayers()) {
                 if (player.getLocation().distanceSquared(explosionCenter) < MACE_PLAYER_SEARCH_RADIUS * MACE_PLAYER_SEARCH_RADIUS) {
                     if (isHoldingMace(player)) {
+                        if (isDebug) logger.info("[Debug] Cause: Mace ground smash by " + player.getName() + ". Processing interactions.");
                         List<Block> affectedBlocks = new ArrayList<>(e.blockList());
                         e.blockList().clear();
                         handleInteractiveExplosion(affectedBlocks, "#mace-" + player.getName(), explosionCenter);
@@ -91,6 +102,7 @@ public class ExplosionListener implements Listener {
         }
 
         if (e.getYield() == 0.0f) {
+            if (isDebug) logger.info("[Debug] Cause: Zero yield explosion. Ignoring.");
             e.blockList().clear();
             return;
         }
@@ -108,6 +120,7 @@ public class ExplosionListener implements Listener {
         }
 
         if (probablyCauses != null) {
+            if (isDebug) logger.info("[Debug] Logging block explosion removal caused by: " + probablyCauses);
             for (Block block : e.blockList()) {
                 this.plugin.getApi().logRemoval(probablyCauses, block.getLocation(), block.getType(), block.getBlockData());
             }
@@ -116,15 +129,17 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
+        boolean isDebug = plugin.getConfig().getBoolean("debug", false);
+        if (isDebug) {
+            logger.info("[Debug] Event: EntityExplodeEvent | Entity: " + e.getEntityType().name() + " | Yield: " + e.getYield());
+        }
+
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
             String shooterName = this.plugin.getCache().getIfPresent(e.getEntity().getUniqueId());
-            if (shooterName == null) {
-                shooterName = "world";
-            }
+            if (shooterName == null) shooterName = "world";
 
             boolean isMace = false;
             Location explosionCenter = e.getLocation();
-
             Player shooter = this.plugin.getServer().getPlayerExact(shooterName);
             if (shooter != null && shooter.getWorld().equals(explosionCenter.getWorld()) &&
                     shooter.getLocation().distanceSquared(explosionCenter) < WIND_CHARGE_MACE_SEARCH_RADIUS * WIND_CHARGE_MACE_SEARCH_RADIUS) {
@@ -134,6 +149,8 @@ public class ExplosionListener implements Listener {
             }
 
             String reason = (isMace ? "#mace-" : "#wind_charge-") + shooterName;
+            if (isDebug) logger.info("[Debug] Cause: " + (isMace ? "Mace entity smash" : "Wind Charge") + " from " + shooterName + ". Processing interactions.");
+
             List<Block> affectedBlocks = new ArrayList<>(e.blockList());
             e.blockList().clear();
             handleInteractiveExplosion(affectedBlocks, reason, explosionCenter);
@@ -141,6 +158,7 @@ public class ExplosionListener implements Listener {
         }
 
         if (e.getYield() == 0.0f) {
+            if (isDebug) logger.info("[Debug] Cause: Zero yield explosion. Ignoring.");
             e.blockList().clear();
             return;
         }
@@ -152,17 +170,11 @@ public class ExplosionListener implements Listener {
 
         Entity entity = e.getEntity();
         String track = this.plugin.getCache().getIfPresent(entity.getUniqueId());
-
-        if (track == null) {
-            track = this.plugin.getCache().getIfPresent(entity.getLocation());
-        }
-
+        if (track == null) track = this.plugin.getCache().getIfPresent(entity.getLocation());
         if (track == null) {
             if (entity instanceof Creeper creeper) {
                 LivingEntity target = creeper.getTarget();
-                if (target != null) {
-                    track = target.getName();
-                }
+                if (target != null) track = target.getName();
             } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
                 Entity damager = event.getDamager();
                 String damagerTrack = this.plugin.getCache().getIfPresent(damager.getUniqueId());
@@ -183,6 +195,7 @@ public class ExplosionListener implements Listener {
         }
 
         String reason = track.startsWith("#") ? track : "#" + e.getEntityType().name().toLowerCase(Locale.ROOT) + "-" + track;
+        if (isDebug) logger.info("[Debug] Logging entity explosion removal caused by: " + reason);
         for (Block block : e.blockList()) {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
         }
@@ -195,12 +208,8 @@ public class ExplosionListener implements Listener {
         Block clickedBlock = e.getClickedBlock();
         if (clickedBlock == null) return;
 
-        if (clickedBlock.getBlockData() instanceof Bed bed) {
-            Location headLocation = (bed.getPart() == Bed.Part.HEAD) ? clickedBlock.getLocation() : clickedBlock.getLocation().add(bed.getFacing().getDirection());
-            Location footLocation = (bed.getPart() == Bed.Part.FOOT) ? clickedBlock.getLocation() : clickedBlock.getLocation().subtract(bed.getFacing().getDirection());
-            String reason = "#bed-" + e.getPlayer().getName();
-            this.plugin.getCache().put(headLocation.getBlock().getLocation(), reason);
-            this.plugin.getCache().put(footLocation.getBlock().getLocation(), reason);
+        if (clickedBlock.getBlockData() instanceof Bed) {
+            this.plugin.getCache().put(clickedBlock.getLocation(), "#bed-" + e.getPlayer().getName());
         } else if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
             this.plugin.getCache().put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
         }

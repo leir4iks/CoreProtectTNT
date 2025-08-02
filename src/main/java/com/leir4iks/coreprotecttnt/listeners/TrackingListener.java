@@ -15,20 +15,30 @@ import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
+import java.util.logging.Logger;
+
 public class TrackingListener implements Listener {
     private final Main plugin;
+    private final Logger logger;
 
     public TrackingListener(Main plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getLogger();
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockPlace(BlockPlaceEvent event) {
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("[Debug] Caching block place at " + event.getBlock().getLocation() + " by " + event.getPlayer().getName());
+        }
         this.plugin.getCache().put(event.getBlock().getLocation(), event.getPlayer().getName());
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onBlockBreak(BlockBreakEvent event) {
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("[Debug] Caching block break at " + event.getBlock().getLocation() + " by " + event.getPlayer().getName());
+        }
         this.plugin.getCache().put(event.getBlock().getLocation(), event.getPlayer().getName());
     }
 
@@ -38,15 +48,11 @@ public class TrackingListener implements Listener {
         ProjectileSource shooter = projectile.getShooter();
         if (shooter == null) return;
 
-        String shooterName;
-        if (shooter instanceof Player) {
-            shooterName = ((Player) shooter).getName();
-        } else if (shooter instanceof Entity) {
-            shooterName = ((Entity) shooter).getName();
-        } else {
-            shooterName = "world";
-        }
+        String shooterName = (shooter instanceof Entity) ? ((Entity) shooter).getName() : "world";
 
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("[Debug] Caching projectile " + projectile.getUniqueId() + " from shooter " + shooterName);
+        }
         this.plugin.getCache().put(projectile.getUniqueId(), shooterName);
     }
 
@@ -57,10 +63,12 @@ public class TrackingListener implements Listener {
         if (source != null) {
             String sourceFromCache = this.plugin.getCache().getIfPresent(source.getUniqueId());
             if (sourceFromCache != null) {
+                if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking TNT " + tntPrimed.getUniqueId() + " from cached entity " + source.getUniqueId());
                 this.plugin.getCache().put(tntPrimed.getUniqueId(), sourceFromCache);
                 return;
             }
             if (source instanceof Player) {
+                if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking TNT " + tntPrimed.getUniqueId() + " from player " + source.getName());
                 this.plugin.getCache().put(tntPrimed.getUniqueId(), source.getName());
                 return;
             }
@@ -68,6 +76,7 @@ public class TrackingListener implements Listener {
         Location blockLocation = tntPrimed.getLocation().getBlock().getLocation();
         String reason = this.plugin.getCache().getIfPresent(blockLocation);
         if (reason != null) {
+            if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking TNT " + tntPrimed.getUniqueId() + " from block at " + blockLocation);
             this.plugin.getCache().put(tntPrimed.getUniqueId(), reason);
         }
     }
@@ -88,6 +97,7 @@ public class TrackingListener implements Listener {
             }
         }
         if (damagerName != null) {
+            if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking damage to EnderCrystal " + e.getEntity().getUniqueId() + " by " + damagerName);
             this.plugin.getCache().put(e.getEntity().getUniqueId(), damagerName);
         }
     }
@@ -99,15 +109,10 @@ public class TrackingListener implements Listener {
         if (shooter == null) return;
         String sourceName = this.plugin.getCache().getIfPresent(projectile.getUniqueId());
         if (sourceName == null) {
-            if (shooter instanceof Player) {
-                sourceName = ((Player) shooter).getName();
-            } else if (shooter instanceof Entity) {
-                sourceName = ((Entity) shooter).getName();
-            }
+            sourceName = (shooter instanceof Entity) ? ((Entity) shooter).getName() : "world";
         }
-        if (sourceName != null) {
-            this.plugin.getCache().put(e.getEntity().getUniqueId(), sourceName);
-        }
+        if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking damage to entity " + e.getEntity().getUniqueId() + " by projectile from " + sourceName);
+        this.plugin.getCache().put(e.getEntity().getUniqueId(), sourceName);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
@@ -120,6 +125,7 @@ public class TrackingListener implements Listener {
             source = ((Player) e.getEntity().getShooter()).getName();
         }
         if (source != null) {
+            if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking bomb hit on " + e.getHitEntity().getType() + " by " + source);
             this.plugin.getCache().put(e.getHitEntity().getUniqueId(), source);
         }
     }
