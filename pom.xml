@@ -6,11 +6,12 @@
 
     <groupId>com.leir4iks</groupId>
     <artifactId>CoreProtectTNT</artifactId>
-    <version>3.0.1</version>
+    <version>${revision}</version>
 
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <revision>3.0.1-SNAPSHOT</revision>
     </properties>
 
     <repositories>
@@ -70,7 +71,7 @@
                             <relocations>
                                 <relocation>
                                     <pattern>com.google.gson</pattern>
-                                    <shadedPattern>com.leir4iks.coreprotecttnt.libs.gson</shadedPattern>
+                                    <shadedPattern>com.leir4iks.coreprotecttred.libs.gson</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>

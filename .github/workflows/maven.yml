@@ -1,8 +1,10 @@
-name: Maven Build
+name: Maven Build & Deploy
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - main
+      - master
 
 jobs:
   build:
@@ -26,23 +28,26 @@ jobs:
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
 
-      - name: Build with Maven
-        run: mvn -B package --file pom.xml -DskipTests
-
       - name: Get Commit Info
         id: commit
         run: |
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
           echo "commit_message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Update Server
+      - name: Build with Maven
+        id: build
         run: |
           VERSION="build-${{ github.run_number }}-${{ steps.commit.outputs.sha_short }}"
+          mvn -B package --file pom.xml -DskipTests -Drevision=${VERSION}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Update Server
+        run: |
           JAR_FILE=$(find target -name "CoreProtectTNT-*.jar")
           
           curl -X POST \
                -H "X-API-KEY: ${{ secrets.UPDATE_SERVER_API_KEY }}" \
                -F "file=@${JAR_FILE}" \
-               -F "version=${VERSION}" \
+               -F "version=${{ steps.build.outputs.version }}" \
                -F "changelog=${{ steps.commit.outputs.commit_message }}" \
                "${{ secrets.UPDATE_SERVER_URL }}"
