@@ -32,8 +32,8 @@ jobs:
         id: commit
         run: |
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          COMMIT_MSG_URL_ENCODED=$(git log -1 --pretty=%B | jq -sRr @uri)
-          echo "commit_message=${COMMIT_MSG_URL_ENCODED}" >> $GITHUB_OUTPUT
+          COMMIT_MSG_B64=$(git log -1 --pretty=%B | base64 -w 0)
+          echo "commit_message_b64=${COMMIT_MSG_B64}" >> $GITHUB_OUTPUT
 
       - name: Build with Maven
         id: build
@@ -48,6 +48,8 @@ jobs:
           
           curl -X POST \
                -H "X-API-KEY: ${{ secrets.UPDATE_SERVER_API_KEY }}" \
+               -H "X-Plugin-Version: ${{ steps.build.outputs.version }}" \
+               -H "X-Plugin-Changelog: ${{ steps.commit.outputs.commit_message_b64 }}" \
                -H "Content-Type: application/octet-stream" \
                --data-binary "@${JAR_FILE}" \
-               "${{ secrets.UPDATE_SERVER_URL }}?version=${{ steps.build.outputs.version }}&changelog=${{ steps.commit.outputs.commit_message }}"
+               "${{ secrets.UPDATE_SERVER_URL }}"
