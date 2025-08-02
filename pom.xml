@@ -83,6 +83,9 @@
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <excludes>
+                    <exclude>cpt-banner.webp</exclude>
+                </excludes>
             </resource>
         </resources>
     </build>
