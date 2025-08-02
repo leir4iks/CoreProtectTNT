@@ -48,16 +48,13 @@ public class TrackingListener implements Listener {
         ProjectileSource shooter = projectile.getShooter();
         if (shooter == null) return;
 
-        String shooterName = null;
+        String shooterName = "world";
         if (shooter instanceof Player) {
             shooterName = ((Player) shooter).getName();
+        } else if (shooter instanceof Mob mob && mob.getTarget() != null && mob.getTarget() instanceof Player) {
+            shooterName = mob.getTarget().getName();
         } else if (shooter instanceof Entity) {
-            shooterName = this.plugin.getCache().getIfPresent(((Entity) shooter).getUniqueId());
-            if (shooterName == null) {
-                shooterName = ((Entity) shooter).getName();
-            }
-        } else {
-            shooterName = "world";
+            shooterName = ((Entity) shooter).getName();
         }
 
         if (plugin.getConfig().getBoolean("debug", false)) {
@@ -86,9 +83,9 @@ public class TrackingListener implements Listener {
 
         if (reason == null) {
             Location tntLocation = tntPrimed.getLocation();
-            for (int x = -3; x <= 3; x++) {
-                for (int y = -3; y <= 3; y++) {
-                    for (int z = -3; z <= 3; z++) {
+            for (int x = -5; x <= 5; x++) {
+                for (int y = -5; y <= 5; y++) {
+                    for (int z = -5; z <= 5; z++) {
                         Location checkLoc = tntLocation.clone().add(x, y, z);
                         String nearbySource = this.plugin.getCache().getIfPresent(checkLoc.getBlock().getLocation());
                         if (nearbySource != null) {
@@ -106,26 +103,6 @@ public class TrackingListener implements Listener {
         if (reason != null) {
             if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking TNT " + tntPrimed.getUniqueId() + " from source: " + reason);
             this.plugin.getCache().put(tntPrimed.getUniqueId(), reason);
-        }
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.LOWEST)
-    public void onEntityDamageByPlayer(EntityDamageByEntityEvent e) {
-        if (e.getEntity() instanceof Ghast || e.getEntity() instanceof Blaze) {
-            String damagerName = null;
-            if (e.getDamager() instanceof Player) {
-                damagerName = e.getDamager().getName();
-            } else if (e.getDamager() instanceof Projectile) {
-                ProjectileSource shooter = ((Projectile) e.getDamager()).getShooter();
-                if (shooter instanceof Player) {
-                    damagerName = ((Player) shooter).getName();
-                }
-            }
-
-            if (damagerName != null) {
-                if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Caching provocation of " + e.getEntity().getType() + " (" + e.getEntity().getUniqueId() + ") by " + damagerName);
-                this.plugin.getCache().put(e.getEntity().getUniqueId(), damagerName);
-            }
         }
     }
 
