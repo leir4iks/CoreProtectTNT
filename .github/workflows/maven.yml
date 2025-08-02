@@ -32,7 +32,8 @@ jobs:
         id: commit
         run: |
           echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "commit_message=$(git log -1 --pretty=%B)" >> $GITHUB_OUTPUT
+          COMMIT_MSG_URL_ENCODED=$(git log -1 --pretty=%B | jq -sRr @uri)
+          echo "commit_message=${COMMIT_MSG_URL_ENCODED}" >> $GITHUB_OUTPUT
 
       - name: Build with Maven
         id: build
@@ -45,13 +46,8 @@ jobs:
         run: |
           JAR_FILE=$(find target -name "CoreProtectTNT-*.jar")
           
-          curl --verbose \
-               --retry 5 \
-               --retry-delay 5 \
-               --connect-timeout 20 \
-               -X POST \
+          curl -X POST \
                -H "X-API-KEY: ${{ secrets.UPDATE_SERVER_API_KEY }}" \
-               -F "file=@${JAR_FILE}" \
-               -F "version=${{ steps.build.outputs.version }}" \
-               -F "changelog=${{ steps.commit.outputs.commit_message }}" \
-               "${{ secrets.UPDATE_SERVER_URL }}"
+               -H "Content-Type: application/octet-stream" \
+               --data-binary "@${JAR_FILE}" \
+               "${{ secrets.UPDATE_SERVER_URL }}?version=${{ steps.build.outputs.version }}&changelog=${{ steps.commit.outputs.commit_message }}"
