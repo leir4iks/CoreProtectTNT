@@ -1,8 +1,13 @@
 name: CoreProtectTNT
 main: com.leir4iks.coreprotecttnt.Main
-version: ${version}
+version: ${project.version}
 api-version: 1.21
 depend:
   - CoreProtect
 authors: [GhostChu, leir4iks, danikovdev]
 folia-supported: true
+commands:
+  cptnt:
+    description: CoreProtectTNT commands
+    permission: coreprotecttnt.command
+    aliases: [coreprotecttnt]

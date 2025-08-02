@@ -1,5 +1,10 @@
 debug: false
 
+update-checker:
+  enabled: true
+  auto-download: true
+  api-url: "http://212.80.7.202:20564/update/coreprotecttnt"
+
 block-explosion:
   enable: true
   disable-unknown: false

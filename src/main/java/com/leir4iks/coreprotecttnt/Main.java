@@ -12,19 +12,22 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public class Main extends JavaPlugin {
-   private final Cache<Object, String> probablyCache;
+   private final Cache<Object, String> probablyCache = CacheBuilder.newBuilder()
+           .expireAfterAccess(1L, TimeUnit.HOURS)
+           .concurrencyLevel(4)
+           .maximumSize(50000L)
+           .build();
    private CoreProtectAPI api;
-
-   public Main() {
-      this.probablyCache = CacheBuilder.newBuilder().expireAfterAccess(1L, TimeUnit.HOURS).concurrencyLevel(4).maximumSize(50000L).build();
-   }
+   private UpdateChecker updateChecker;
 
    @Override
    public void onEnable() {
       saveDefaultConfig();
+
       Plugin depend = Bukkit.getPluginManager().getPlugin("CoreProtect");
       if (depend instanceof CoreProtect) {
          CoreProtectAPI coreProtectAPI = ((CoreProtect) depend).getAPI();
@@ -35,11 +38,18 @@ public class Main extends JavaPlugin {
          } else {
             getLogger().severe("CoreProtect API version 10 or higher is required. Disabling plugin.");
             this.getPluginLoader().disablePlugin(this);
+            return;
          }
       } else {
          getLogger().severe("CoreProtect not found. Disabling plugin.");
          this.getPluginLoader().disablePlugin(this);
+         return;
       }
+
+      this.updateChecker = new UpdateChecker(this);
+      updateChecker.check();
+
+      Objects.requireNonNull(getCommand("cptnt")).setExecutor(new UpdateCommand(updateChecker));
    }
 
    private void registerListeners() {
