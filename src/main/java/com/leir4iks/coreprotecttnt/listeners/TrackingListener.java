@@ -48,19 +48,21 @@ public class TrackingListener implements Listener {
         ProjectileSource shooter = projectile.getShooter();
         if (shooter == null) return;
 
-        String shooterName = "world";
-        if (shooter instanceof Player) {
-            shooterName = ((Player) shooter).getName();
-        } else if (shooter instanceof Mob mob && mob.getTarget() != null && mob.getTarget() instanceof Player) {
-            shooterName = mob.getTarget().getName();
-        } else if (shooter instanceof Entity) {
-            shooterName = ((Entity) shooter).getName();
+        String finalCause;
+        if (shooter instanceof Player player) {
+            finalCause = player.getName();
+        } else if (shooter instanceof Mob mob && mob.getTarget() instanceof Player targetPlayer) {
+            finalCause = mob.getName() + "-" + targetPlayer.getName();
+        } else if (shooter instanceof Entity entity) {
+            finalCause = entity.getName();
+        } else {
+            finalCause = "world";
         }
 
         if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("[Debug] Caching projectile " + projectile.getUniqueId() + " from shooter " + shooterName);
+            logger.info("[Debug] Caching projectile " + projectile.getUniqueId() + " with cause: " + finalCause);
         }
-        this.plugin.getCache().put(projectile.getUniqueId(), shooterName);
+        this.plugin.getCache().put(projectile.getUniqueId(), finalCause);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
