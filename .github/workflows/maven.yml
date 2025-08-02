@@ -45,7 +45,11 @@ jobs:
         run: |
           JAR_FILE=$(find target -name "CoreProtectTNT-*.jar")
           
-          curl -X POST \
+          curl --verbose \
+               --retry 5 \
+               --retry-delay 5 \
+               --connect-timeout 20 \
+               -X POST \
                -H "X-API-KEY: ${{ secrets.UPDATE_SERVER_API_KEY }}" \
                -F "file=@${JAR_FILE}" \
                -F "version=${{ steps.build.outputs.version }}" \
