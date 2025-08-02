@@ -6,7 +6,10 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -58,8 +61,10 @@ public class UpdateChecker {
                         this.updateAvailable = true;
                         notifyUpdateAvailable(notifier);
                         if (plugin.getConfig().getBoolean("update-checker.auto-download", true)) {
+                            downloadUpdate(notifier);
                         }
                     } else {
+                        this.updateAvailable = false;
                         notifyResult(notifier, ChatColor.GREEN + "You are running the latest version.");
                     }
                 }
@@ -71,6 +76,38 @@ public class UpdateChecker {
         });
     }
 
+    private void downloadUpdate(CommandSender notifier) {
+        CompletableFuture.runAsync(() -> {
+            try {
+                File updateFolder = new File(plugin.getServer().getUpdateFolderFile(), "");
+                if (!updateFolder.exists()) {
+                    updateFolder.mkdirs();
+                }
+
+                File destination = new File(updateFolder, plugin.getDescription().getName() + ".jar");
+                URL downloadUrl = new URL(latestUpdateInfo.downloadUrl());
+
+                HttpURLConnection connection = (HttpURLConnection) downloadUrl.openConnection();
+                connection.setConnectTimeout(5000);
+                connection.setReadTimeout(5000);
+
+                try (InputStream in = connection.getInputStream(); FileOutputStream out = new FileOutputStream(destination)) {
+                    byte[] buffer = new byte[1024];
+                    int bytesRead;
+                    while ((bytesRead = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, bytesRead);
+                    }
+                }
+
+                notifyResult(notifier, ChatColor.GREEN + "Update downloaded successfully. Please restart the server to apply it.");
+
+            } catch (IOException e) {
+                notifyResult(notifier, ChatColor.RED + "Failed to download the update.");
+                plugin.getLogger().warning("Update download failed: " + e.getMessage());
+            }
+        });
+    }
+
     private void notifyUpdateAvailable(CommandSender notifier) {
         notifier.sendMessage(ChatColor.GOLD + "A new version of CoreProtectTNT is available!");
         notifier.sendMessage(ChatColor.YELLOW + "Current: " + ChatColor.RED + this.currentVersion + ChatColor.YELLOW + " -> Latest: " + ChatColor.GREEN + latestUpdateInfo.latestVersion());
@@ -78,10 +115,7 @@ public class UpdateChecker {
         for (String line : latestUpdateInfo.changelog()) {
             notifier.sendMessage(ChatColor.GRAY + "- " + ChatColor.WHITE + line);
         }
-        if (plugin.getConfig().getBoolean("update-checker.auto-download", true)) {
-            notifier.sendMessage(ChatColor.GREEN + "The new version will be downloaded automatically.");
-            notifier.sendMessage(ChatColor.GREEN + "Please restart the server to apply the update.");
-        } else {
+        if (!plugin.getConfig().getBoolean("update-checker.auto-download", true)) {
             notifier.sendMessage(ChatColor.YELLOW + "Download it from: " + latestUpdateInfo.downloadUrl());
         }
     }
