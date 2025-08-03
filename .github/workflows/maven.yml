@@ -47,7 +47,7 @@ jobs:
 
       - name: Notify
         run: |
-          ARTIFACT_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
+          ARTIFACT_URL="https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
           JSON_PAYLOAD=$(printf '{"version": "%s", "changelog_b64": "%s", "artifact_url": "%s", "github_token": "%s"}' \
             "${{ steps.build.outputs.version }}" \
             "${{ steps.commit.outputs.commit_message_b64 }}" \
