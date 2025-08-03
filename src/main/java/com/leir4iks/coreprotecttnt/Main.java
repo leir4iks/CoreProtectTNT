@@ -8,6 +8,7 @@ import com.leir4iks.coreprotecttnt.listeners.HangingListener;
 import com.leir4iks.coreprotecttnt.listeners.TrackingListener;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
+import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -28,6 +29,9 @@ public class Main extends JavaPlugin {
    public void onEnable() {
       saveDefaultConfig();
 
+      int pluginId = 26755;
+      Metrics metrics = new Metrics(this, pluginId);
+
       Plugin depend = Bukkit.getPluginManager().getPlugin("CoreProtect");
       if (depend instanceof CoreProtect) {
          CoreProtectAPI coreProtectAPI = ((CoreProtect) depend).getAPI();
@@ -37,12 +41,12 @@ public class Main extends JavaPlugin {
             getLogger().info("Successfully hooked into CoreProtect API v" + coreProtectAPI.APIVersion());
          } else {
             getLogger().severe("CoreProtect API version 10 or higher is required. Disabling plugin.");
-            this.getPluginLoader().disablePlugin(this);
+            this.getServer().getPluginManager().disablePlugin(this);
             return;
          }
       } else {
          getLogger().severe("CoreProtect not found. Disabling plugin.");
-         this.getPluginLoader().disablePlugin(this);
+         this.getServer().getPluginManager().disablePlugin(this);
          return;
       }
 

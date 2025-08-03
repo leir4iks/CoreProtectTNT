@@ -11,7 +11,7 @@
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <revision>3.1-SNAPSHOT</revision>
+        <revision>3.1.1-SNAPSHOT</revision>
     </properties>
 
     <repositories>
@@ -44,6 +44,12 @@
             <version>2.10.1</version>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>org.bstats</groupId>
+            <artifactId>bstats-bukkit</artifactId>
+            <version>3.0.2</version>
+            <scope>compile</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -71,7 +77,11 @@
                             <relocations>
                                 <relocation>
                                     <pattern>com.google.gson</pattern>
-                                    <shadedPattern>com.leir4iks.coreprotecttred.libs.gson</shadedPattern>
+                                    <shadedPattern>com.leir4iks.coreprotecttnt.libs.gson</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.bstats</pattern>
+                                    <shadedPattern>com.leir4iks.coreprotecttnt.libs.bstats</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
