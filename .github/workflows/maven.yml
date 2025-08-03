@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
 
     steps:
       - name: Checkout code
@@ -20,13 +23,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-
-      - name: Cache Maven dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.m2
-          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
-          restore-keys: ${{ runner.os }}-m2
 
       - name: Get Commit Info
         id: commit
@@ -42,14 +38,24 @@ jobs:
           mvn -B package --file pom.xml -DskipTests -Drevision=${VERSION}
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Deploy to Update Server
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoreProtectTNT-JAR
+          path: target/CoreProtectTNT-*.jar
+          retention-days: 7
+
+      - name: Notify
         run: |
-          JAR_FILE=$(find target -name "CoreProtectTNT-*.jar")
+          ARTIFACT_URL="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
+          JSON_PAYLOAD=$(printf '{"version": "%s", "changelog_b64": "%s", "artifact_url": "%s", "github_token": "%s"}' \
+            "${{ steps.build.outputs.version }}" \
+            "${{ steps.commit.outputs.commit_message_b64 }}" \
+            "${ARTIFACT_URL}" \
+            "${{ secrets.GITHUB_TOKEN }}")
           
           curl -X POST \
                -H "X-API-KEY: ${{ secrets.UPDATE_SERVER_API_KEY }}" \
-               -H "X-Plugin-Version: ${{ steps.build.outputs.version }}" \
-               -H "X-Plugin-Changelog: ${{ steps.commit.outputs.commit_message_b64 }}" \
-               -H "Content-Type: application/octet-stream" \
-               --data-binary "@${JAR_FILE}" \
+               -H "Content-Type: application/json" \
+               -d "${JSON_PAYLOAD}" \
                "${{ secrets.UPDATE_SERVER_URL }}"
