@@ -4,3 +4,8 @@
 
 <img src="cpt-banner.webp" alt="leir4iks">
 <div align="center">
+
+```coreprotecttnt.version```
+```coreprotecttnt.update```
+
+[![bStats Graph Data](https://bstats.org/signatures/bukkit/coreprotecttnt.svg)](https://bstats.org/plugin/bukkit/CoreProtectTNT/26755)
