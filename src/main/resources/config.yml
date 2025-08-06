@@ -1,30 +1,57 @@
+# Enable this to see detailed plugin activity in the server console
+# Useful for debugging issues.
 debug: false
 
+# Settings for the automatic update checker.
 update-checker:
+  # If true, the plugin will check for new versions on startup.
   enabled: true
+  # If true, new versions will be automatically downloaded to the 'update' folder
+  # The server needs to be restarted to apply the update
   auto-download: true
 
+# Settings for explosions caused by blocks (e.g., Beds, Respawn Anchors).
 block-explosion:
+  # Set to true to enable logging of block-based explosions.
   enable: true
+  # If true, the plugin will cancel explosions if it cannot determine the source (player/cause)
+  # This can prevent griefing with untrackable explosion sources.
   disable-unknown: false
-  alert: "&cВзрыв рядом с вами был заблокирован, так как его источник неизвестен."
+  # The message sent to nearby players when an unknown explosion is blocked.
+  alert: "&cAn explosion near you was blocked because its source is unknown."
 
+# Settings for explosions caused by entities (e.g, TNT, Creepers, Fireballs, Wind Charges)
 entity-explosion:
+  # Set to true to enable logging of entity-based explosions.
   enable: true
+  # If true, the plugin will cancel explosions if it cannot determine the source.
   disable-unknown: false
-  alert: "&cВзрыв рядом с вами был заблокирован, так как его источник неизвестен."
+  # The message sent to nearby players when an unknown explosion is blocked.
+  alert: "&cAn explosion near you was blocked because its source is unknown."
 
+# Settings for fire spread logging.
 fire:
+  # Set to true to enable logging of blocks burned by fire.
   enable: true
+  # If true, the plugin will stop fire from spreading if it cannot determine the original source.
   disable-unknown: false
-  alert: "&cРаспространение огня было заблокировано, так как его источник неизвестен."
+  # The message sent to nearby players when fire spread is blocked.
+  alert: "&cThe spread of fire was blocked because its source is unknown."
 
+# Settings for Item Frame logging.
 itemframe:
+  # Set to true to enable logging of item frame destruction and interactions (placing/removing items).
   enable: true
+  # If true, the plugin will prevent the destruction of an item frame if the cause is unknown.
   disable-unknown: false
-  alert: "&cУничтожение рамки было заблокировано, так как его источник неизвестен."
+  # The message sent to nearby players when an item frame destruction is blocked.
+  alert: "&cThe destruction of an item frame was blocked because its source is unknown."
 
+# Settings for other hanging entities (e.g., Paintings)
 hanging:
+  # Set to true to enable logging for the destruction of hanging entities.
   enable: true
+  # If true, the plugin will prevent the destruction of a hanging entity if the cause is unknown.
   disable-unknown: false
-  alert: "&cУничтожение объекта было заблокировано, так как его источник неизвестен."
+  # The message sent to nearby players when a hanging entity destruction is blocked.
+  alert: "&cThe destruction of a hanging entity was blocked because its source is unknown."

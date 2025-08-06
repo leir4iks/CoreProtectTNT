@@ -2,7 +2,7 @@
 [![Download](https://img.shields.io/badge/Download-Latest-007BFF?style=for-the-badge&logo=github)](https://github.com/leir4iks/CoreProtectTNT/releases/latest)
 
 <div align="center">
-<img src="https://raw.githubusercontent.com/leir4iks/CoreProtectTNT-updated/master/cpt-banner.webp" alt="CoreProtectTNT Banner">
+<img src="https://raw.githubusercontent.com/leir4iks/CoreProtectTNT/master/cpt-banner.webp" alt="CoreProtectTNT Banner">
 </div>
 
 <div align="center">
