@@ -1,11 +1,11 @@
+
+[![Download](https://img.shields.io/badge/Download-Latest-007BFF?style=for-the-badge&logo=github)](https://github.com/leir4iks/CoreProtectTNT/releases/latest)
+
 <div align="center">
 <img src="https://raw.githubusercontent.com/leir4iks/CoreProtectTNT-updated/master/cpt-banner.webp" alt="CoreProtectTNT Banner">
 </div>
 
 <div align="center">
-
-[![Download](https://img.shields.io/badge/Download-Latest-007BFF?style=for-the-badge&logo=github)](https://github.com/leir4iks/CoreProtectTNT-updated/releases/latest)
-[![bStats Graph Data](https://bstats.org/signatures/bukkit/coreprotecttnt.svg)](https://bstats.org/plugin/bukkit/CoreProtectTNT/26755)
 
 </div>
 
@@ -25,3 +25,7 @@ Performance - The code has been carefully optimized to reduce server load during
 
 ### Fixed:
 1.21 Logic - Corrected the logging for Mace and Wind Charge attacks to ensure they are recorded clearly and accurately.
+
+### BStats:
+
+[![bStats Graph Data](https://bstats.org/signatures/bukkit/coreprotecttnt.svg)](https://bstats.org/plugin/bukkit/CoreProtectTNT/26755)
