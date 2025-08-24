@@ -206,15 +206,16 @@ public class ExplosionListener implements Listener {
 
         String reason;
         String entityName = e.getEntityType().name().toLowerCase(Locale.ROOT);
+        String trackedCause = Util.getRootCause(track);
 
-        if (track.toLowerCase().startsWith(entityName)) {
+        if (track.toLowerCase().contains(entityName)) {
             reason = "#" + track;
         } else {
-            reason = "#" + entityName + "-" + track;
+            reason = "#" + entityName + "-" + trackedCause;
         }
 
         if (isDebug) {
-            logger.info("[Debug] Logging entity explosion removal caused by: " + reason);
+            logger.info("[Debug] Logging entity explosion removal caused by: " + reason + " (Full chain: " + track + ")");
         }
 
         for (Block block : e.blockList()) {

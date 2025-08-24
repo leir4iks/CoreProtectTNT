@@ -102,9 +102,9 @@ public class FireListener implements Listener {
         if (ignitingEntity != null) {
             String fromCache = this.plugin.getCache().getIfPresent(ignitingEntity.getUniqueId());
             if (fromCache != null) {
-                return Util.createChainedCause(ignitingEntity, fromCache);
+                return fromCache;
             }
-            return "#" + ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
+            return ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
         }
         if (ignitingBlock != null) {
             return this.plugin.getCache().getIfPresent(ignitingBlock.getLocation());

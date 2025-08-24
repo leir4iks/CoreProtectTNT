@@ -25,6 +25,18 @@ public class TrackingListener implements Listener {
     private final Logger logger;
     private static final int WITHER_SPAWN_RADIUS = 16;
     private static final int TNT_NEARBY_SOURCE_RADIUS = 5;
+    private static final Location[] WITHER_BODY_LOCATIONS = {
+            new Location(null, 0, -1, 0),
+            new Location(null, 0, -2, 0),
+            new Location(null, 1, -2, 0),
+            new Location(null, -1, -2, 0)
+    };
+    private static final Location[] WITHER_SKULL_LOCATIONS = {
+            new Location(null, 0, 0, 0),
+            new Location(null, 1, 0, 0),
+            new Location(null, -1, 0, 0)
+    };
+
 
     public TrackingListener(Main plugin) {
         this.plugin = plugin;
@@ -57,9 +69,28 @@ public class TrackingListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onCreatureSpawn(CreatureSpawnEvent e) {
         if (e.getEntityType() == EntityType.WITHER && e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.BUILD_WITHER) {
-            e.getLocation().getNearbyPlayers(WITHER_SPAWN_RADIUS).stream()
-                    .min(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(e.getLocation())))
-                    .ifPresent(closestPlayer -> this.plugin.getCache().put(e.getEntity().getUniqueId(), closestPlayer.getName()));
+            Location spawnLoc = e.getLocation();
+            String placer = null;
+
+            for (Location loc : WITHER_SKULL_LOCATIONS) {
+                placer = this.plugin.getCache().getIfPresent(spawnLoc.clone().add(loc));
+                if (placer != null) break;
+            }
+
+            if (placer == null) {
+                for (Location loc : WITHER_BODY_LOCATIONS) {
+                    placer = this.plugin.getCache().getIfPresent(spawnLoc.clone().add(loc));
+                    if (placer != null) break;
+                }
+            }
+
+            if (placer != null) {
+                this.plugin.getCache().put(e.getEntity().getUniqueId(), placer);
+            } else {
+                e.getLocation().getNearbyPlayers(WITHER_SPAWN_RADIUS).stream()
+                        .min(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(e.getLocation())))
+                        .ifPresent(closestPlayer -> this.plugin.getCache().put(e.getEntity().getUniqueId(), closestPlayer.getName()));
+            }
         }
     }
 
