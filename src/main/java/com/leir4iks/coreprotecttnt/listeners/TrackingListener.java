@@ -1,9 +1,10 @@
+// File: C:/111/CoreProtectTNT/src/main/java/com/leir4iks/coreprotecttnt/listeners/TrackingListener.java
 package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
 import org.bukkit.Location;
-import org.bukkit.block.BlockProjectileSource;
+// import org.bukkit.block.BlockProjectileSource; // ЭТОТ ИМПОРТ УДАЛЕН
 import org.bukkit.entity.*;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
@@ -58,8 +59,8 @@ public class TrackingListener implements Listener {
             finalCause = mob.getType().name().toLowerCase(Locale.ROOT) + "-" + targetPlayer.getName();
         } else if (shooter instanceof Entity entity) {
             finalCause = entity.getType().name().toLowerCase(Locale.ROOT);
-        } else if (shooter instanceof BlockProjectileSource bps) {
-            Location loc = bps.getBlock().getLocation();
+        } else if (shooter.getBlock() != null) { // ИСПРАВЛЕНИЕ: Универсальная проверка для раздатчиков
+            Location loc = shooter.getBlock().getLocation();
             finalCause = "#dispenser@[" + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ() + "]";
         } else {
             finalCause = "world";
