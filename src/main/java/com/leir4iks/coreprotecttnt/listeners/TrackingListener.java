@@ -1,7 +1,9 @@
 package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
+import com.leir4iks.coreprotecttnt.Util;
 import org.bukkit.Location;
+import org.bukkit.block.BlockProjectileSource;
 import org.bukkit.entity.*;
 import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
@@ -15,6 +17,7 @@ import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.projectiles.ProjectileSource;
 
+import java.util.Locale;
 import java.util.logging.Logger;
 
 public class TrackingListener implements Listener {
@@ -52,9 +55,12 @@ public class TrackingListener implements Listener {
         if (shooter instanceof Player player) {
             finalCause = player.getName();
         } else if (shooter instanceof Mob mob && mob.getTarget() instanceof Player targetPlayer) {
-            finalCause = mob.getName() + "-" + targetPlayer.getName();
+            finalCause = mob.getType().name().toLowerCase(Locale.ROOT) + "-" + targetPlayer.getName();
         } else if (shooter instanceof Entity entity) {
-            finalCause = entity.getName();
+            finalCause = entity.getType().name().toLowerCase(Locale.ROOT);
+        } else if (shooter instanceof BlockProjectileSource bps) {
+            Location loc = bps.getBlock().getLocation();
+            finalCause = "#dispenser@[" + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ() + "]";
         } else {
             finalCause = "world";
         }
@@ -72,8 +78,10 @@ public class TrackingListener implements Listener {
         String reason = null;
 
         if (source != null) {
-            reason = this.plugin.getCache().getIfPresent(source.getUniqueId());
-            if (reason == null && source instanceof Player) {
+            String sourceReason = this.plugin.getCache().getIfPresent(source.getUniqueId());
+            if (sourceReason != null) {
+                reason = Util.createChainedCause(source, sourceReason);
+            } else if (source instanceof Player) {
                 reason = source.getName();
             }
         }

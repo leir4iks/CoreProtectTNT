@@ -1,0 +1,53 @@
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'branch to deploy from'
+        required: true
+        default: 'main'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
+
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.branch }}
+
+      - name: download
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: CoreProtectTNT-Release-Package
+          workflow: continuous-integration.yml
+          branch: ${{ github.event.inputs.branch }}
+          path: release-artifact
+
+      - name: prepare Release Info
+        id: release_info
+        run: |
+          VERSION=$(cat release-artifact/build_version.txt)
+          CHANGELOG_B64=$(base64 -w 0 < release-artifact/commit_message.txt)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "changelog_b64=${CHANGELOG_B64}" >> $GITHUB_OUTPUT
+
+      - name: notify
+        run: |
+          ARTIFACT_URL="https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts"
+          JSON_PAYLOAD=$(printf '{"version": "%s", "changelog_b64": "%s", "artifact_url": "%s", "github_token": "%s"}' \
+            "${{ steps.release_info.outputs.version }}" \
+            "${{ steps.release_info.outputs.changelog_b64 }}" \
+            "${ARTIFACT_URL}" \
+            "${{ secrets.GITHUB_TOKEN }}")
+          
+          curl -X POST \
+               -H "X-API-KEY: ${{ secrets.UPDATE_SERVER_API_KEY }}" \
+               -H "Content-Type: application/json" \
+               -d "${JSON_PAYLOAD}" \
+               "${{ secrets.UPDATE_SERVER_URL }}"

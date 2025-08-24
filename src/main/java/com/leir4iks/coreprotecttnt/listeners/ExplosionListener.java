@@ -179,7 +179,7 @@ public class ExplosionListener implements Listener {
                 Entity damager = event.getDamager();
                 String damagerTrack = this.plugin.getCache().getIfPresent(damager.getUniqueId());
                 if (damagerTrack != null) {
-                    track = damagerTrack;
+                    track = Util.createChainedCause(damager, damagerTrack);
                 } else {
                     track = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
                 }
@@ -194,7 +194,8 @@ public class ExplosionListener implements Listener {
             return;
         }
 
-        String reason = track.startsWith("#") ? track : "#" + e.getEntityType().name().toLowerCase(Locale.ROOT) + "-" + track;
+        String reason = Util.createChainedCause(entity, track);
+
         if (isDebug) logger.info("[Debug] Logging entity explosion removal caused by: " + reason);
         for (Block block : e.blockList()) {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());

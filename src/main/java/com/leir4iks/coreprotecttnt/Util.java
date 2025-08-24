@@ -4,9 +4,14 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 
+import java.util.Locale;
+
 public class Util {
+   private static final int MAX_CAUSE_LENGTH = 256;
+
    public static void broadcastNearPlayers(Location location, String message) {
       if (message != null && !message.isEmpty()) {
          String msg = ChatColor.translateAlternateColorCodes('&', message);
@@ -24,5 +29,15 @@ public class Util {
          section.set("alert", String.valueOf(ChatColor.RED) + "Failed to read translation, configuration section missing!");
       }
       return section;
+   }
+
+   public static String createChainedCause(Entity entity, String previousCause) {
+      String newCause = "#" + entity.getType().name().toLowerCase(Locale.ROOT) + "-" + previousCause;
+
+      if (newCause.length() > MAX_CAUSE_LENGTH) {
+         return newCause.substring(0, MAX_CAUSE_LENGTH - 3) + "...";
+      }
+
+      return newCause;
    }
 }

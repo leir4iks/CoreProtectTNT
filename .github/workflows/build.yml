@@ -1,0 +1,51 @@
+name: build
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Get Commit Info
+        id: commit
+        run: |
+          echo "sha_short=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          git log -1 --pretty=%B > commit_message.txt
+
+      - name: Build with Maven
+        id: build
+        run: |
+          VERSION="build-${{ github.run_number }}-${{ steps.commit.outputs.sha_short }}"
+          mvn -B package --file pom.xml -DskipTests -Drevision=${VERSION}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "${VERSION}" > build_version.txt
+
+      - name: artifact
+        run: |
+          mkdir -p release-artifact
+          mv target/CoreProtectTNT-*.jar release-artifact/CoreProtectTNT.jar
+          mv build_version.txt release-artifact/
+          mv commit_message.txt release-artifact/
+
+      - name: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: CoreProtectTNT-Release-Package
+          path: release-artifact/
+          retention-days: 7
