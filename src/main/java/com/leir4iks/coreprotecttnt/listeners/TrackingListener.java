@@ -16,12 +16,16 @@ import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.projectiles.BlockProjectileSource;
 import org.bukkit.projectiles.ProjectileSource;
 
+import java.util.Comparator;
 import java.util.Locale;
 import java.util.logging.Logger;
 
 public class TrackingListener implements Listener {
     private final Main plugin;
     private final Logger logger;
+    private static final int WITHER_SPAWN_RADIUS = 16;
+    private static final int TNT_NEARBY_SOURCE_RADIUS = 5;
+
 
     public TrackingListener(Main plugin) {
         this.plugin = plugin;
@@ -51,21 +55,12 @@ public class TrackingListener implements Listener {
         }
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onCreatureSpawn(CreatureSpawnEvent e) {
         if (e.getEntityType() == EntityType.WITHER && e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.BUILD_WITHER) {
-            Player closestPlayer = null;
-            double closestDistance = Double.MAX_VALUE;
-            for (Player player : e.getLocation().getNearbyPlayers(16)) {
-                double distance = player.getLocation().distanceSquared(e.getLocation());
-                if (distance < closestDistance) {
-                    closestDistance = distance;
-                    closestPlayer = player;
-                }
-            }
-            if (closestPlayer != null) {
-                this.plugin.getCache().put(e.getEntity().getUniqueId(), closestPlayer.getName());
-            }
+            e.getLocation().getNearbyPlayers(WITHER_SPAWN_RADIUS).stream()
+                    .min(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(e.getLocation())))
+                    .ifPresent(closestPlayer -> this.plugin.getCache().put(e.getEntity().getUniqueId(), closestPlayer.getName()));
         }
     }
 
@@ -75,18 +70,25 @@ public class TrackingListener implements Listener {
         ProjectileSource shooter = projectile.getShooter();
         if (shooter == null) return;
 
-        String finalCause;
+        String finalCause = "world";
         if (shooter instanceof Player player) {
             finalCause = player.getName();
-        } else if (shooter instanceof Mob mob && mob.getTarget() instanceof Player targetPlayer) {
-            finalCause = mob.getType().name().toLowerCase(Locale.ROOT) + "-" + targetPlayer.getName();
-        } else if (shooter instanceof Entity entity) {
-            finalCause = entity.getType().name().toLowerCase(Locale.ROOT);
+        } else if (shooter instanceof Mob mob) {
+            String mobTypeName = mob.getType().name().toLowerCase(Locale.ROOT);
+            String projectileName = projectile.getType().name().toLowerCase(Locale.ROOT);
+            if (mob.getTarget() instanceof Player targetPlayer) {
+                finalCause = projectileName + "-" + mobTypeName + "-" + targetPlayer.getName();
+            } else {
+                String trackedAggressor = this.plugin.getCache().getIfPresent(mob.getUniqueId());
+                if (trackedAggressor != null) {
+                    finalCause = projectileName + "-" + mobTypeName + "-" + trackedAggressor;
+                } else {
+                    finalCause = projectileName + "-" + mobTypeName;
+                }
+            }
         } else if (shooter instanceof BlockProjectileSource bps) {
             Location loc = bps.getBlock().getLocation();
             finalCause = "#dispenser@[" + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ() + "]";
-        } else {
-            finalCause = "world";
         }
 
         if (plugin.getConfig().getBoolean("debug", false)) {
@@ -99,44 +101,44 @@ public class TrackingListener implements Listener {
     public void onIgniteTNT(EntitySpawnEvent e) {
         if (!(e.getEntity() instanceof TNTPrimed tntPrimed)) return;
         Entity source = tntPrimed.getSource();
-        String reason = null;
+        String initiator = null;
 
         if (source != null) {
             String sourceReason = this.plugin.getCache().getIfPresent(source.getUniqueId());
             if (sourceReason != null) {
-                reason = Util.createChainedCause(source, sourceReason);
+                initiator = Util.createChainedCause(source, sourceReason);
             } else if (source instanceof Player) {
-                reason = source.getName();
+                initiator = source.getName();
             }
         }
 
-        if (reason == null) {
+        if (initiator == null) {
             Location blockLocation = tntPrimed.getLocation().getBlock().getLocation();
-            reason = this.plugin.getCache().getIfPresent(blockLocation);
+            initiator = this.plugin.getCache().getIfPresent(blockLocation);
         }
 
-        if (reason == null) {
+        if (initiator == null) {
             Location tntLocation = tntPrimed.getLocation();
-            for (int x = -5; x <= 5; x++) {
-                for (int y = -5; y <= 5; y++) {
-                    for (int z = -5; z <= 5; z++) {
+            for (int x = -TNT_NEARBY_SOURCE_RADIUS; x <= TNT_NEARBY_SOURCE_RADIUS; x++) {
+                for (int y = -TNT_NEARBY_SOURCE_RADIUS; y <= TNT_NEARBY_SOURCE_RADIUS; y++) {
+                    for (int z = -TNT_NEARBY_SOURCE_RADIUS; z <= TNT_NEARBY_SOURCE_RADIUS; z++) {
                         Location checkLoc = tntLocation.clone().add(x, y, z);
                         String nearbySource = this.plugin.getCache().getIfPresent(checkLoc.getBlock().getLocation());
                         if (nearbySource != null) {
-                            reason = nearbySource;
-                            if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Found nearby source for TNT: " + reason + " at " + checkLoc);
+                            initiator = nearbySource;
+                            if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Found nearby source for TNT: " + initiator + " at " + checkLoc);
                             break;
                         }
                     }
-                    if (reason != null) break;
+                    if (initiator != null) break;
                 }
-                if (reason != null) break;
+                if (initiator != null) break;
             }
         }
 
-        if (reason != null) {
-            if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking TNT " + tntPrimed.getUniqueId() + " from source: " + reason);
-            this.plugin.getCache().put(tntPrimed.getUniqueId(), reason);
+        if (initiator != null) {
+            if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking TNT " + tntPrimed.getUniqueId() + " from source: " + initiator);
+            this.plugin.getCache().put(tntPrimed.getUniqueId(), initiator);
         }
     }
 }

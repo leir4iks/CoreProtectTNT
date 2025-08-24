@@ -122,18 +122,18 @@ public class ExplosionListener implements Listener {
         if (!section.getBoolean("enable", true)) return;
 
         Location location = e.getBlock().getLocation();
-        String probablyCauses = this.plugin.getCache().getIfPresent(location);
+        String initiator = this.plugin.getCache().getIfPresent(location);
 
-        if (probablyCauses == null && section.getBoolean("disable-unknown", false)) {
+        if (initiator == null && section.getBoolean("disable-unknown", false)) {
             e.blockList().clear();
             Util.broadcastNearPlayers(location, section.getString("alert"));
             return;
         }
 
-        if (probablyCauses != null) {
-            if (isDebug) logger.info("[Debug] Logging block explosion removal caused by: " + probablyCauses);
+        if (initiator != null) {
+            if (isDebug) logger.info("[Debug] Logging block explosion removal caused by: " + initiator);
             for (Block block : e.blockList()) {
-                this.plugin.getApi().logRemoval(probablyCauses, block.getLocation(), block.getType(), block.getBlockData());
+                this.plugin.getApi().logRemoval(initiator, block.getLocation(), block.getType(), block.getBlockData());
             }
         }
     }
@@ -148,23 +148,23 @@ public class ExplosionListener implements Listener {
         if (!section.getBoolean("enable", true)) return;
 
         Entity entity = e.getEntity();
-        String track = this.plugin.getCache().getIfPresent(entity.getUniqueId());
+        String initiator = this.plugin.getCache().getIfPresent(entity.getUniqueId());
 
-        if (track == null) {
+        if (initiator == null) {
             if (entity instanceof Creeper creeper && creeper.getTarget() != null) {
-                track = creeper.getTarget().getName();
+                initiator = creeper.getTarget().getName();
             } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
                 Entity damager = event.getDamager();
                 String damagerTrack = this.plugin.getCache().getIfPresent(damager.getUniqueId());
                 if (damagerTrack != null) {
-                    track = Util.createChainedCause(damager, damagerTrack);
+                    initiator = Util.createChainedCause(damager, damagerTrack);
                 } else {
-                    track = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
+                    initiator = "#" + damager.getType().name().toLowerCase(Locale.ROOT);
                 }
             }
         }
 
-        if (track == null) {
+        if (initiator == null) {
             if (section.getBoolean("disable-unknown", false)) {
                 e.blockList().clear();
                 Util.broadcastNearPlayers(e.getLocation(), section.getString("alert"));
@@ -172,11 +172,11 @@ public class ExplosionListener implements Listener {
             return;
         }
 
-        String rootCause = Util.getRootCause(track);
+        String rootCause = Util.getRootCause(initiator);
         String reason = "#" + e.getEntityType().name().toLowerCase(Locale.ROOT) + "-" + rootCause;
 
         if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("[Debug] Logging entity explosion removal caused by: " + reason + " (Full chain: " + track + ")");
+            logger.info("[Debug] Logging entity explosion removal caused by: " + reason + " (Full chain: " + initiator + ")");
         }
 
         for (Block block : e.blockList()) {
