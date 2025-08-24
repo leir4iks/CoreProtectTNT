@@ -37,11 +37,6 @@ public class ExplosionListener implements Listener {
     private final Main plugin;
     private final Logger logger;
 
-    private static final double INTERACTIVE_EXPLOSION_RADIUS = 5.0;
-    private static final double INTERACTIVE_EXPLOSION_ITEM_VELOCITY_MULTIPLIER = 0.8;
-    private static final double MACE_PLAYER_SEARCH_RADIUS = 2.0;
-    private static final double WIND_CHARGE_MACE_SEARCH_RADIUS = 1.5;
-
     public ExplosionListener(Main plugin) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
@@ -66,11 +61,11 @@ public class ExplosionListener implements Listener {
             }
         }
 
-        BoundingBox searchBox = BoundingBox.of(center, INTERACTIVE_EXPLOSION_RADIUS, INTERACTIVE_EXPLOSION_RADIUS, INTERACTIVE_EXPLOSION_RADIUS);
+        BoundingBox searchBox = BoundingBox.of(center, 5.0, 5.0, 5.0);
         for (Entity entity : center.getWorld().getNearbyEntities(searchBox)) {
             if (entity instanceof Item item) {
                 Vector direction = item.getLocation().toVector().subtract(center.toVector()).normalize();
-                item.setVelocity(item.getVelocity().add(direction.multiply(INTERACTIVE_EXPLOSION_ITEM_VELOCITY_MULTIPLIER)));
+                item.setVelocity(item.getVelocity().add(direction.multiply(0.8)));
             }
         }
     }
@@ -84,16 +79,14 @@ public class ExplosionListener implements Listener {
     public void onEntityChangeBlock(EntityChangeBlockEvent e) {
         if (!(e.getEntity() instanceof Mob mob)) return;
 
-        String cause = null;
-        if (mob.getTarget() instanceof Player target) {
+        String cause = this.plugin.getCache().getIfPresent(mob.getUniqueId());
+        if (cause == null && mob.getTarget() instanceof Player target) {
             cause = target.getName();
-        } else {
-            cause = this.plugin.getCache().getIfPresent(mob.getUniqueId());
         }
 
         if (cause != null) {
             String reason = "#" + mob.getType().name().toLowerCase(Locale.ROOT) + "-" + cause;
-            this.plugin.getApi().logRemoval(reason, e.getBlock().getLocation(), e.getBlockData().getMaterial(), e.getBlockData());
+            this.plugin.getApi().logRemoval(reason, e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
         }
     }
 
@@ -107,7 +100,7 @@ public class ExplosionListener implements Listener {
         if (e.getBlock().getType() == Material.AIR) {
             Location explosionCenter = e.getBlock().getLocation();
             for (Player player : explosionCenter.getWorld().getPlayers()) {
-                if (player.getLocation().distanceSquared(explosionCenter) < MACE_PLAYER_SEARCH_RADIUS * MACE_PLAYER_SEARCH_RADIUS) {
+                if (player.getLocation().distanceSquared(explosionCenter) < 4.0) {
                     if (isHoldingMace(player)) {
                         if (isDebug) logger.info("[Debug] Cause: Mace ground smash by " + player.getName() + ". Processing interactions.");
                         List<Block> affectedBlocks = new ArrayList<>(e.blockList());
@@ -147,52 +140,19 @@ public class ExplosionListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onEntityExplode(EntityExplodeEvent e) {
-        boolean isDebug = plugin.getConfig().getBoolean("debug", false);
-        if (isDebug) {
-            logger.info("[Debug] Event: EntityExplodeEvent | Entity: " + e.getEntityType().name() + " | Yield: " + e.getYield());
-        }
-
-        if (e.getEntityType() == EntityType.WIND_CHARGE) {
-            String shooterName = this.plugin.getCache().getIfPresent(e.getEntity().getUniqueId());
-            if (shooterName == null) shooterName = "world";
-
-            boolean isMace = false;
-            Location explosionCenter = e.getLocation();
-            Player shooter = this.plugin.getServer().getPlayerExact(shooterName);
-            if (shooter != null && shooter.getWorld().equals(explosionCenter.getWorld()) &&
-                    shooter.getLocation().distanceSquared(explosionCenter) < WIND_CHARGE_MACE_SEARCH_RADIUS * WIND_CHARGE_MACE_SEARCH_RADIUS) {
-                if (isHoldingMace(shooter)) {
-                    isMace = true;
-                }
-            }
-
-            String reason = (isMace ? "#mace-" : "#wind_charge-") + shooterName;
-            if (isDebug) logger.info("[Debug] Cause: " + (isMace ? "Mace entity smash" : "Wind Charge") + " from " + shooterName + ". Processing interactions.");
-
-            List<Block> affectedBlocks = new ArrayList<>(e.blockList());
-            e.blockList().clear();
-            handleInteractiveExplosion(affectedBlocks, reason, explosionCenter);
+        if (e.getYield() == 0.0f || e.blockList().isEmpty()) {
             return;
         }
-
-        if (e.getYield() == 0.0f) {
-            if (isDebug) logger.info("[Debug] Cause: Zero yield explosion. Ignoring.");
-            e.blockList().clear();
-            return;
-        }
-
-        if (e.blockList().isEmpty()) return;
 
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "entity-explosion");
         if (!section.getBoolean("enable", true)) return;
 
         Entity entity = e.getEntity();
         String track = this.plugin.getCache().getIfPresent(entity.getUniqueId());
-        if (track == null) track = this.plugin.getCache().getIfPresent(entity.getLocation());
+
         if (track == null) {
-            if (entity instanceof Creeper creeper) {
-                LivingEntity target = creeper.getTarget();
-                if (target != null) track = target.getName();
+            if (entity instanceof Creeper creeper && creeper.getTarget() != null) {
+                track = creeper.getTarget().getName();
             } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
                 Entity damager = event.getDamager();
                 String damagerTrack = this.plugin.getCache().getIfPresent(damager.getUniqueId());
@@ -215,7 +175,10 @@ public class ExplosionListener implements Listener {
         String rootCause = Util.getRootCause(track);
         String reason = "#" + e.getEntityType().name().toLowerCase(Locale.ROOT) + "-" + rootCause;
 
-        if (isDebug) logger.info("[Debug] Logging entity explosion removal caused by: " + reason);
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("[Debug] Logging entity explosion removal caused by: " + reason + " (Full chain: " + track + ")");
+        }
+
         for (Block block : e.blockList()) {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
         }
