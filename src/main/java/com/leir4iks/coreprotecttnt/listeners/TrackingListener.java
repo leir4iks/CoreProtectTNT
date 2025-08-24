@@ -26,7 +26,6 @@ public class TrackingListener implements Listener {
     private static final int WITHER_SPAWN_RADIUS = 16;
     private static final int TNT_NEARBY_SOURCE_RADIUS = 5;
 
-
     public TrackingListener(Main plugin) {
         this.plugin = plugin;
         this.logger = plugin.getLogger();
