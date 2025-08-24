@@ -40,4 +40,15 @@ public class Util {
 
       return newCause;
    }
+
+   public static String getRootCause(String cause) {
+      if (cause == null) {
+         return null;
+      }
+      if (cause.contains("-")) {
+         String[] parts = cause.split("-");
+         return parts[parts.length - 1];
+      }
+      return cause;
+   }
 }

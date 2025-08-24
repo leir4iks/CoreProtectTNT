@@ -67,7 +67,8 @@ public class FireListener implements Listener {
         }
 
         if (cause != null) {
-            String reason = cause.startsWith("#") ? cause : "#fire-" + cause;
+            String rootCause = Util.getRootCause(cause);
+            String reason = "#fire-" + rootCause;
             activeFires.put(UUID.randomUUID(), new FireSource(reason, e.getBlock().getLocation()));
         } else if (section.getBoolean("disable-unknown", false)) {
             e.setCancelled(true);
@@ -98,7 +99,10 @@ public class FireListener implements Listener {
         if (player != null) return player.getName();
         if (ignitingEntity != null) {
             String fromCache = this.plugin.getCache().getIfPresent(ignitingEntity.getUniqueId());
-            return fromCache != null ? fromCache : "#" + ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
+            if (fromCache != null) {
+                return Util.createChainedCause(ignitingEntity, fromCache);
+            }
+            return "#" + ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
         }
         if (ignitingBlock != null) return this.plugin.getCache().getIfPresent(ignitingBlock.getLocation());
         return null;

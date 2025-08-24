@@ -19,6 +19,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
@@ -77,6 +78,23 @@ public class ExplosionListener implements Listener {
     private boolean isHoldingMace(Player player) {
         PlayerInventory inventory = player.getInventory();
         return inventory.getItemInMainHand().getType() == Material.MACE || inventory.getItemInOffHand().getType() == Material.MACE;
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onEntityChangeBlock(EntityChangeBlockEvent e) {
+        if (!(e.getEntity() instanceof Mob mob)) return;
+
+        String cause = null;
+        if (mob.getTarget() instanceof Player target) {
+            cause = target.getName();
+        } else {
+            cause = this.plugin.getCache().getIfPresent(mob.getUniqueId());
+        }
+
+        if (cause != null) {
+            String reason = "#" + mob.getType().name().toLowerCase(Locale.ROOT) + "-" + cause;
+            this.plugin.getApi().logRemoval(reason, e.getBlock().getLocation(), e.getBlockData().getMaterial(), e.getBlockData());
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
@@ -194,7 +212,8 @@ public class ExplosionListener implements Listener {
             return;
         }
 
-        String reason = Util.createChainedCause(entity, track);
+        String rootCause = Util.getRootCause(track);
+        String reason = "#" + e.getEntityType().name().toLowerCase(Locale.ROOT) + "-" + rootCause;
 
         if (isDebug) logger.info("[Debug] Logging entity explosion removal caused by: " + reason);
         for (Block block : e.blockList()) {

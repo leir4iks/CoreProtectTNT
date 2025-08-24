@@ -10,6 +10,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
@@ -43,6 +44,31 @@ public class TrackingListener implements Listener {
             logger.info("[Debug] Caching block break at " + event.getBlock().getLocation() + " by " + event.getPlayer().getName());
         }
         this.plugin.getCache().put(event.getBlock().getLocation(), event.getPlayer().getName());
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onPlayerDamageMob(EntityDamageByEntityEvent e) {
+        if (e.getDamager() instanceof Player && e.getEntity() instanceof Mob) {
+            this.plugin.getCache().put(e.getEntity().getUniqueId(), e.getDamager().getName());
+        }
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onCreatureSpawn(CreatureSpawnEvent e) {
+        if (e.getEntityType() == EntityType.WITHER && e.getSpawnReason() == CreatureSpawnEvent.SpawnReason.BUILD_WITHER) {
+            Player closestPlayer = null;
+            double closestDistance = Double.MAX_VALUE;
+            for (Player player : e.getLocation().getNearbyPlayers(16)) {
+                double distance = player.getLocation().distanceSquared(e.getLocation());
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    closestPlayer = player;
+                }
+            }
+            if (closestPlayer != null) {
+                this.plugin.getCache().put(e.getEntity().getUniqueId(), closestPlayer.getName());
+            }
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
