@@ -228,7 +228,9 @@ public class ExplosionListener implements Listener {
 
         for (Hanging hanging : hangingEntities) {
             if (hanging.isDead()) continue;
-            this.plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
+
+            plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
+
             Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;
             plugin.getApi().logRemoval(reason, hanging.getLocation(), material, null);
             if (hanging instanceof ItemFrame itemFrame) {
@@ -236,6 +238,7 @@ public class ExplosionListener implements Listener {
                     plugin.getApi().logRemoval(reason, hanging.getLocation(), itemFrame.getItem().getType(), null);
                 }
             }
+            hanging.remove();
         }
     }
 

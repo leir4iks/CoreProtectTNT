@@ -2,6 +2,7 @@ package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -13,7 +14,6 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -31,31 +31,24 @@ public class HangingListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onClickItemFrame(PlayerInteractEntityEvent e) {
         if (!(e.getRightClicked() instanceof ItemFrame itemFrame)) return;
-        if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("[Debug] Event: PlayerInteractEntityEvent | Player: " + e.getPlayer().getName() + " | Clicked: " + e.getRightClicked().getType());
-        }
 
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "itemframe");
         if (!section.getBoolean("enable", true)) return;
 
         Player player = e.getPlayer();
-        String playerName = player.getName();
-        boolean hasItem = itemFrame.getItem().getType() != Material.AIR;
-        ItemStack mainHandItem = player.getInventory().getItemInMainHand();
-        boolean isPuttingItem = !mainHandItem.getType().isAir();
 
-        if (!hasItem && isPuttingItem) {
-            plugin.getApi().logPlacement(playerName, itemFrame.getLocation(), mainHandItem.getType(), null);
-        } else if (hasItem && !isPuttingItem) {
-            plugin.getApi().logRemoval(playerName, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
-        } else if (hasItem) {
-            plugin.getApi().logInteraction("#rotate-" + playerName, itemFrame.getLocation());
-        }
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            plugin.getApi().logContainerTransaction(player.getName(), itemFrame.getLocation());
+        });
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onHangingBreak(HangingBreakEvent e) {
-        if (e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION) return;
+        if (e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION) {
+            e.setCancelled(true);
+            return;
+        }
+
         if (plugin.getProcessedEntities().getIfPresent(e.getEntity().getUniqueId()) != null) return;
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Event: HangingBreakEvent | Entity: " + e.getEntity().getType() + " | Cause: " + e.getCause());
@@ -76,7 +69,7 @@ public class HangingListener implements Listener {
         logHangingRemoval(e.getEntity(), cause);
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onHangingHit(HangingBreakByEntityEvent e) {
         Hanging hanging = e.getEntity();
         if (plugin.getProcessedEntities().getIfPresent(hanging.getUniqueId()) != null) return;
