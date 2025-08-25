@@ -101,11 +101,12 @@ public class TrackingListener implements Listener {
         if (shooter == null) return;
 
         String finalCause = "world";
+        String projectileName = projectile.getType().name().toLowerCase(Locale.ROOT);
+
         if (shooter instanceof Player player) {
-            finalCause = player.getName();
+            finalCause = projectileName + "-" + player.getName();
         } else if (shooter instanceof Mob mob) {
             String mobTypeName = mob.getType().name().toLowerCase(Locale.ROOT);
-            String projectileName = projectile.getType().name().toLowerCase(Locale.ROOT);
             if (mob.getTarget() instanceof Player targetPlayer) {
                 finalCause = projectileName + "-" + mobTypeName + "-" + targetPlayer.getName();
             } else {
@@ -136,7 +137,7 @@ public class TrackingListener implements Listener {
         if (source != null) {
             String sourceReason = this.plugin.getCache().getIfPresent(source.getUniqueId());
             if (sourceReason != null) {
-                initiator = Util.createChainedCause(source, sourceReason);
+                initiator = sourceReason;
             } else if (source instanceof Player) {
                 initiator = source.getName();
             }

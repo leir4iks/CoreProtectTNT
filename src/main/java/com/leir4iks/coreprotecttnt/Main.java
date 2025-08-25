@@ -14,6 +14,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class Main extends JavaPlugin {
@@ -22,6 +23,11 @@ public class Main extends JavaPlugin {
            .concurrencyLevel(4)
            .maximumSize(50000L)
            .build();
+
+   private final Cache<UUID, Boolean> processedEntities = CacheBuilder.newBuilder()
+           .expireAfterWrite(2, TimeUnit.SECONDS)
+           .build();
+
    private CoreProtectAPI api;
    private UpdateChecker updateChecker;
 
@@ -30,7 +36,7 @@ public class Main extends JavaPlugin {
       saveDefaultConfig();
 
       int pluginId = 26755;
-      Metrics metrics = new Metrics(this, pluginId);
+      new Metrics(this, pluginId);
 
       Plugin depend = Bukkit.getPluginManager().getPlugin("CoreProtect");
       if (depend instanceof CoreProtect) {
@@ -69,5 +75,9 @@ public class Main extends JavaPlugin {
 
    public Cache<Object, String> getCache() {
       return probablyCache;
+   }
+
+   public Cache<UUID, Boolean> getProcessedEntities() {
+      return processedEntities;
    }
 }

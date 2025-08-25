@@ -29,6 +29,7 @@ import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.logging.Logger;
@@ -140,6 +141,7 @@ public class ExplosionListener implements Listener {
             for (Block block : e.blockList()) {
                 this.plugin.getApi().logRemoval(initiator, block.getLocation(), block.getType(), block.getBlockData());
             }
+            handleHangingEntitiesInExplosion(e.getLocation(), e.getYield(), initiator);
         }
     }
 
@@ -155,7 +157,7 @@ public class ExplosionListener implements Listener {
             if (shooterName == null) shooterName = "world";
 
             boolean isMaceRelated = false;
-            Player shooter = this.plugin.getServer().getPlayerExact(shooterName);
+            Player shooter = this.plugin.getServer().getPlayerExact(Util.getRootCause(shooterName));
             if (shooter != null && shooter.getWorld().equals(e.getLocation().getWorld()) &&
                     shooter.getLocation().distanceSquared(e.getLocation()) < WIND_CHARGE_MACE_SEARCH_RADIUS * WIND_CHARGE_MACE_SEARCH_RADIUS) {
                 if (isHoldingMace(shooter)) {
@@ -163,7 +165,7 @@ public class ExplosionListener implements Listener {
                 }
             }
 
-            String reason = "#" + (isMaceRelated ? "mace-" : "wind_charge-") + shooterName;
+            String reason = "#" + (isMaceRelated ? "mace-" : "") + shooterName;
             if (isDebug) logger.info("[Debug] Cause: " + (isMaceRelated ? "Mace entity smash" : "Wind Charge") + ". Processing interactions.");
 
             List<Block> affectedBlocks = new ArrayList<>(e.blockList());
@@ -204,15 +206,8 @@ public class ExplosionListener implements Listener {
             return;
         }
 
-        String reason;
         String entityName = e.getEntityType().name().toLowerCase(Locale.ROOT);
-        String trackedCause = Util.getRootCause(track);
-
-        if (track.toLowerCase().contains(entityName)) {
-            reason = "#" + track;
-        } else {
-            reason = "#" + entityName + "-" + trackedCause;
-        }
+        String reason = "#" + entityName + "-" + Util.getRootCause(track);
 
         if (isDebug) {
             logger.info("[Debug] Logging entity explosion removal caused by: " + reason + " (Full chain: " + track + ")");
@@ -221,7 +216,26 @@ public class ExplosionListener implements Listener {
         for (Block block : e.blockList()) {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
         }
+        handleHangingEntitiesInExplosion(e.getLocation(), e.getYield(), reason);
         this.plugin.getCache().invalidate(entity.getUniqueId());
+    }
+
+    private void handleHangingEntitiesInExplosion(Location center, float yield, String reason) {
+        double radius = Math.ceil(yield);
+        Collection<Hanging> hangingEntities = center.getWorld().getNearbyEntities(center, radius, radius, radius, entity -> entity instanceof Hanging).stream()
+                .map(Hanging.class::cast)
+                .toList();
+
+        for (Hanging hanging : hangingEntities) {
+            this.plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
+            Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;
+            plugin.getApi().logRemoval(reason, hanging.getLocation(), material, null);
+            if (hanging instanceof ItemFrame itemFrame) {
+                if (itemFrame.getItem() != null && itemFrame.getItem().getType() != Material.AIR) {
+                    plugin.getApi().logRemoval(reason, hanging.getLocation(), itemFrame.getItem().getType(), null);
+                }
+            }
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
