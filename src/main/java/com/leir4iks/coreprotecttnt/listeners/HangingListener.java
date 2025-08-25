@@ -16,7 +16,6 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.Locale;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.logging.Logger;
 
@@ -56,7 +55,7 @@ public class HangingListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onHangingBreak(HangingBreakEvent e) {
-        if (e.getCause() == HangingBreakEvent.RemoveCause.ENTITY || e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION) return;
+        if (e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION) return;
         if (plugin.getProcessedEntities().getIfPresent(e.getEntity().getUniqueId()) != null) return;
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Event: HangingBreakEvent | Entity: " + e.getEntity().getType() + " | Cause: " + e.getCause());

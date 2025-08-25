@@ -221,7 +221,7 @@ public class ExplosionListener implements Listener {
     }
 
     private void handleHangingEntitiesInExplosion(Location center, float yield, String reason) {
-        double radius = Math.max(yield, 4.0f);
+        double radius = Math.max(yield, 5.0f);
         Collection<Hanging> hangingEntities = center.getWorld().getNearbyEntities(center, radius, radius, radius, entity -> entity instanceof Hanging).stream()
                 .map(Hanging.class::cast)
                 .toList();
