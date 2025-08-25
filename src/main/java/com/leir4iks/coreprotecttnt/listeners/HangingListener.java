@@ -43,11 +43,11 @@ public class HangingListener implements Listener {
         boolean isPuttingItem = !mainHandItem.getType().isAir();
 
         if (!hasItem && isPuttingItem) {
-            plugin.getApi().logContainerTransaction(playerName, itemFrame.getLocation(), mainHandItem.getType(), mainHandItem.getAmount());
+            plugin.getApi().logPlacement("#additem-" + playerName, itemFrame.getLocation(), mainHandItem.getType(), mainHandItem.getData());
         } else if (hasItem && !isPuttingItem) {
-            plugin.getApi().logContainerTransaction(playerName, itemFrame.getLocation(), itemFrame.getItem().getType(), -itemFrame.getItem().getAmount());
+            plugin.getApi().logRemoval(playerName, itemFrame.getLocation(), itemFrame.getItem().getType(), itemFrame.getItem().getData());
         } else if (hasItem) {
-            plugin.getApi().logContainerTransaction("#rotate-" + playerName, itemFrame.getLocation(), itemFrame.getItem().getType(), 0);
+            plugin.getApi().logInteraction("#rotate-" + playerName, itemFrame.getLocation());
         }
     }
 

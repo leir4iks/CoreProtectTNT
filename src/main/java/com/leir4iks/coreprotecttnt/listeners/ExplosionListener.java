@@ -141,7 +141,7 @@ public class ExplosionListener implements Listener {
             for (Block block : e.blockList()) {
                 this.plugin.getApi().logRemoval(initiator, block.getLocation(), block.getType(), block.getBlockData());
             }
-            handleHangingEntitiesInExplosion(e.getLocation(), e.getYield(), initiator);
+            handleHangingEntitiesInExplosion(e.getBlock().getLocation(), e.getYield(), initiator);
         }
     }
 
