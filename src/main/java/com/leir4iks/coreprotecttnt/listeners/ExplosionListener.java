@@ -206,7 +206,7 @@ public class ExplosionListener implements Listener {
             return;
         }
 
-        String entityName = e.getEntityType().name().toLowerCase(Locale.ROOT);
+        String entityName = e.getEntityType() == EntityType.PRIMED_TNT ? "tnt" : e.getEntityType().name().toLowerCase(Locale.ROOT);
         String reason = "#" + entityName + "-" + Util.getRootCause(track);
 
         if (isDebug) {
@@ -221,17 +221,18 @@ public class ExplosionListener implements Listener {
     }
 
     private void handleHangingEntitiesInExplosion(Location center, float yield, String reason) {
-        double radius = Math.ceil(yield);
+        double radius = Math.max(yield, 4.0f);
         Collection<Hanging> hangingEntities = center.getWorld().getNearbyEntities(center, radius, radius, radius, entity -> entity instanceof Hanging).stream()
                 .map(Hanging.class::cast)
                 .toList();
 
         for (Hanging hanging : hangingEntities) {
+            if (hanging.isDead()) continue;
             this.plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
             Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;
             plugin.getApi().logRemoval(reason, hanging.getLocation(), material, null);
             if (hanging instanceof ItemFrame itemFrame) {
-                if (itemFrame.getItem() != null && itemFrame.getItem().getType() != Material.AIR) {
+                if (itemFrame.getItem().getType() != Material.AIR) {
                     plugin.getApi().logRemoval(reason, hanging.getLocation(), itemFrame.getItem().getType(), null);
                 }
             }
