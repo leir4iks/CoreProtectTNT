@@ -6,6 +6,7 @@ import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockState;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Mob;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -103,6 +104,13 @@ public class FireListener implements Listener {
             String fromCache = this.plugin.getCache().getIfPresent(ignitingEntity.getUniqueId());
             if (fromCache != null) {
                 return fromCache;
+            }
+
+            if (ignitingEntity instanceof Mob mob) {
+                String aggressor = this.plugin.getCache().getIfPresent(mob.getUniqueId());
+                if (aggressor != null) {
+                    return mob.getType().name().toLowerCase(Locale.ROOT) + "-" + aggressor;
+                }
             }
             return ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
         }

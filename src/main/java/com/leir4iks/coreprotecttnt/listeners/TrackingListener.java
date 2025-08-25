@@ -15,6 +15,7 @@ import org.bukkit.event.entity.EntitySpawnEvent;
 import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.projectiles.BlockProjectileSource;
 import org.bukkit.projectiles.ProjectileSource;
+import org.bukkit.util.Vector;
 
 import java.util.Comparator;
 import java.util.Locale;
@@ -25,18 +26,17 @@ public class TrackingListener implements Listener {
     private final Logger logger;
     private static final int WITHER_SPAWN_RADIUS = 16;
     private static final int TNT_NEARBY_SOURCE_RADIUS = 5;
-    private static final Location[] WITHER_BODY_LOCATIONS = {
-            new Location(null, 0, -1, 0),
-            new Location(null, 0, -2, 0),
-            new Location(null, 1, -2, 0),
-            new Location(null, -1, -2, 0)
+    private static final Vector[] WITHER_BODY_VECTORS = {
+            new Vector(0, -1, 0),
+            new Vector(0, -2, 0),
+            new Vector(1, -2, 0),
+            new Vector(-1, -2, 0)
     };
-    private static final Location[] WITHER_SKULL_LOCATIONS = {
-            new Location(null, 0, 0, 0),
-            new Location(null, 1, 0, 0),
-            new Location(null, -1, 0, 0)
+    private static final Vector[] WITHER_SKULL_VECTORS = {
+            new Vector(0, 0, 0),
+            new Vector(1, 0, 0),
+            new Vector(-1, 0, 0)
     };
-
 
     public TrackingListener(Main plugin) {
         this.plugin = plugin;
@@ -72,14 +72,14 @@ public class TrackingListener implements Listener {
             Location spawnLoc = e.getLocation();
             String placer = null;
 
-            for (Location loc : WITHER_SKULL_LOCATIONS) {
-                placer = this.plugin.getCache().getIfPresent(spawnLoc.clone().add(loc));
+            for (Vector vec : WITHER_SKULL_VECTORS) {
+                placer = this.plugin.getCache().getIfPresent(spawnLoc.clone().add(vec));
                 if (placer != null) break;
             }
 
             if (placer == null) {
-                for (Location loc : WITHER_BODY_LOCATIONS) {
-                    placer = this.plugin.getCache().getIfPresent(spawnLoc.clone().add(loc));
+                for (Vector vec : WITHER_BODY_VECTORS) {
+                    placer = this.plugin.getCache().getIfPresent(spawnLoc.clone().add(vec));
                     if (placer != null) break;
                 }
             }
