@@ -228,7 +228,6 @@ public class ExplosionListener implements Listener {
 
         for (Hanging hanging : hangingEntities) {
             if (hanging.isDead()) continue;
-
             plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
 
             Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;

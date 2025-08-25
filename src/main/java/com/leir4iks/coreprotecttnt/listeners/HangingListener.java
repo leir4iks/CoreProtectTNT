@@ -14,6 +14,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -44,12 +45,15 @@ public class HangingListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onHangingBreak(HangingBreakEvent e) {
+        if (plugin.getProcessedEntities().getIfPresent(e.getEntity().getUniqueId()) != null) {
+            return;
+        }
+
         if (e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION) {
             e.setCancelled(true);
             return;
         }
 
-        if (plugin.getProcessedEntities().getIfPresent(e.getEntity().getUniqueId()) != null) return;
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Event: HangingBreakEvent | Entity: " + e.getEntity().getType() + " | Cause: " + e.getCause());
         }
@@ -100,7 +104,7 @@ public class HangingListener implements Listener {
         String initiator = plugin.getCache().getIfPresent(projectile.getUniqueId());
         if (initiator == null) return;
 
-        String reason = "#" + initiator;
+        String reason = initiator.startsWith("#") ? initiator : "#" + initiator;
         plugin.getApi().logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
     }
 
