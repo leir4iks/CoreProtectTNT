@@ -206,7 +206,7 @@ public class ExplosionListener implements Listener {
             return;
         }
 
-        String entityName = e.getEntityType() == EntityType.PRIMED_TNT ? "tnt" : e.getEntityType().name().toLowerCase(Locale.ROOT);
+        String entityName = e.getEntityType().name().toLowerCase(Locale.ROOT);
         String reason = "#" + entityName + "-" + Util.getRootCause(track);
 
         if (isDebug) {
