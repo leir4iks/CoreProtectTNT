@@ -104,20 +104,20 @@ public class TrackingListener implements Listener {
         String projectileName = projectile.getType().name().toLowerCase(Locale.ROOT);
 
         if (shooter instanceof Player player) {
-            finalCause = projectileName + "-" + player.getName();
+            finalCause = "#" + projectileName + "-" + player.getName();
         } else if (shooter instanceof Mob mob) {
             String mobTypeName = mob.getType().name().toLowerCase(Locale.ROOT);
             String trackedAggressor = this.plugin.getEntityAggroCache().getIfPresent(mob.getUniqueId());
             if (trackedAggressor != null) {
-                finalCause = projectileName + "-" + mobTypeName + "-" + trackedAggressor;
+                finalCause = "#" + projectileName + "-" + mobTypeName + "-" + trackedAggressor;
             } else {
-                finalCause = projectileName + "-" + mobTypeName;
+                finalCause = "#" + projectileName + "-" + mobTypeName;
             }
         } else if (shooter instanceof BlockProjectileSource bps) {
             Location loc = bps.getBlock().getLocation();
             String blockInitiator = this.plugin.getBlockPlaceCache().getIfPresent(loc);
             if (blockInitiator != null) {
-                finalCause = projectileName + "-" + blockInitiator;
+                finalCause = "#" + projectileName + "-" + blockInitiator;
             } else {
                 finalCause = "#dispenser@[" + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ() + "]";
             }

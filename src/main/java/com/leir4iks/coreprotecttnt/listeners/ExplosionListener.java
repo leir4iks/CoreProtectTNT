@@ -154,23 +154,9 @@ public class ExplosionListener implements Listener {
 
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
             String shooterName = this.plugin.getProjectileCache().getIfPresent(e.getEntity().getUniqueId());
-            if (shooterName == null) shooterName = "world";
+            if (shooterName == null) shooterName = "#world";
 
-            boolean isMaceRelated = false;
-            Player shooter = this.plugin.getServer().getPlayerExact(Util.getRootCause(shooterName));
-            if (shooter != null && shooter.getWorld().equals(e.getLocation().getWorld()) &&
-                    shooter.getLocation().distanceSquared(e.getLocation()) < WIND_CHARGE_MACE_SEARCH_RADIUS * WIND_CHARGE_MACE_SEARCH_RADIUS) {
-                if (isHoldingMace(shooter)) {
-                    isMaceRelated = true;
-                }
-            }
-
-            String reason = "#" + (isMaceRelated ? "mace-" : "") + shooterName;
-            if (isDebug) logger.info("[Debug] Cause: " + (isMaceRelated ? "Mace entity smash" : "Wind Charge") + ". Processing interactions.");
-
-            List<Block> affectedBlocks = new ArrayList<>(e.blockList());
-            e.blockList().clear();
-            handleInteractiveExplosion(affectedBlocks, reason, e.getLocation());
+            handleWindChargeExplosion(e, shooterName);
             return;
         }
 
@@ -218,6 +204,17 @@ public class ExplosionListener implements Listener {
         }
         handleHangingEntitiesInExplosion(e.getLocation(), e.getYield(), reason);
         this.plugin.getProjectileCache().invalidate(entity.getUniqueId());
+    }
+
+    private void handleWindChargeExplosion(EntityExplodeEvent e, String reason) {
+        List<Block> affectedBlocks = new ArrayList<>(e.blockList());
+        e.blockList().clear();
+
+        for (Block block : affectedBlocks) {
+            this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
+        }
+
+        handleHangingEntitiesInExplosion(e.getLocation(), e.getYield(), reason);
     }
 
     private void handleHangingEntitiesInExplosion(Location center, float yield, String reason) {

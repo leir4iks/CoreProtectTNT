@@ -86,7 +86,10 @@ public class HangingListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onHangingHit(HangingBreakByEntityEvent e) {
         Hanging hanging = e.getEntity();
-        if (plugin.getProcessedEntities().getIfPresent(hanging.getUniqueId()) != null) return;
+        if (plugin.getProcessedEntities().getIfPresent(hanging.getUniqueId()) != null) {
+            e.setCancelled(true);
+            return;
+        }
 
         plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
 
