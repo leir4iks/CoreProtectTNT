@@ -101,21 +101,21 @@ public class FireListener implements Listener {
             return player.getName();
         }
         if (ignitingEntity != null) {
-            String fromCache = this.plugin.getCache().getIfPresent(ignitingEntity.getUniqueId());
-            if (fromCache != null) {
-                return fromCache;
+            String fromProjectileCache = this.plugin.getProjectileCache().getIfPresent(ignitingEntity.getUniqueId());
+            if (fromProjectileCache != null) {
+                return fromProjectileCache;
             }
 
-            if (ignitingEntity instanceof Mob mob) {
-                String aggressor = this.plugin.getCache().getIfPresent(mob.getUniqueId());
-                if (aggressor != null) {
-                    return mob.getType().name().toLowerCase(Locale.ROOT) + "-" + aggressor;
+            if (ignitingEntity instanceof Mob) {
+                String fromAggroCache = this.plugin.getEntityAggroCache().getIfPresent(ignitingEntity.getUniqueId());
+                if (fromAggroCache != null) {
+                    return Util.createChainedCause(ignitingEntity, fromAggroCache);
                 }
             }
             return ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
         }
         if (ignitingBlock != null) {
-            return this.plugin.getCache().getIfPresent(ignitingBlock.getLocation());
+            return this.plugin.getBlockPlaceCache().getIfPresent(ignitingBlock.getLocation());
         }
         return null;
     }

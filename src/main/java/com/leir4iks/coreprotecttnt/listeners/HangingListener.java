@@ -5,6 +5,7 @@ import com.leir4iks.coreprotecttnt.Util;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Rotation;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -37,23 +38,32 @@ public class HangingListener implements Listener {
         if (!section.getBoolean("enable", true)) return;
 
         Player player = e.getPlayer();
+        ItemStack itemBefore = itemFrame.getItem().clone();
+        Rotation rotationBefore = itemFrame.getRotation();
 
         Bukkit.getScheduler().runTask(plugin, () -> {
-            plugin.getApi().logContainerTransaction(player.getName(), itemFrame.getLocation());
+            ItemStack itemAfter = itemFrame.getItem();
+            Rotation rotationAfter = itemFrame.getRotation();
+
+            boolean itemAddedOrRemoved = !itemBefore.isSimilar(itemAfter);
+            boolean onlyRotated = !itemAddedOrRemoved && rotationBefore != rotationAfter;
+
+            if (onlyRotated) {
+                plugin.getApi().logInteraction("#rotate-" + player.getName(), itemFrame.getLocation());
+            } else if (itemAddedOrRemoved) {
+                plugin.getApi().logContainerTransaction(player.getName(), itemFrame.getLocation());
+            }
         });
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onHangingBreak(HangingBreakEvent e) {
-        if (plugin.getProcessedEntities().getIfPresent(e.getEntity().getUniqueId()) != null) {
-            return;
-        }
-
         if (e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION) {
             e.setCancelled(true);
             return;
         }
 
+        if (plugin.getProcessedEntities().getIfPresent(e.getEntity().getUniqueId()) != null) return;
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Event: HangingBreakEvent | Entity: " + e.getEntity().getType() + " | Cause: " + e.getCause());
         }
@@ -61,7 +71,7 @@ public class HangingListener implements Listener {
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "hanging");
         if (!section.getBoolean("enable", true)) return;
         Location hangingLocation = e.getEntity().getLocation().getBlock().getLocation();
-        String reason = this.plugin.getCache().getIfPresent(hangingLocation);
+        String reason = this.plugin.getBlockPlaceCache().getIfPresent(hangingLocation);
         if (reason == null) {
             if (section.getBoolean("disable-unknown")) {
                 e.setCancelled(true);
@@ -77,6 +87,9 @@ public class HangingListener implements Listener {
     public void onHangingHit(HangingBreakByEntityEvent e) {
         Hanging hanging = e.getEntity();
         if (plugin.getProcessedEntities().getIfPresent(hanging.getUniqueId()) != null) return;
+
+        plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
+
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Event: HangingBreakByEntityEvent | Entity: " + hanging.getType() + " | Remover: " + (e.getRemover() != null ? e.getRemover().getType() : "null"));
         }
@@ -99,9 +112,10 @@ public class HangingListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onItemFrameDamage(EntityDamageByEntityEvent e) {
         if (!(e.getEntity() instanceof ItemFrame itemFrame) || !(e.getDamager() instanceof Projectile projectile)) return;
+        if (plugin.getProcessedEntities().getIfPresent(itemFrame.getUniqueId()) != null) return;
         if (itemFrame.getItem().getType() == Material.AIR || itemFrame.isDead()) return;
 
-        String initiator = plugin.getCache().getIfPresent(projectile.getUniqueId());
+        String initiator = plugin.getProjectileCache().getIfPresent(projectile.getUniqueId());
         if (initiator == null) return;
 
         String reason = initiator.startsWith("#") ? initiator : "#" + initiator;
@@ -114,9 +128,15 @@ public class HangingListener implements Listener {
                     if (r instanceof Player) {
                         return r.getName();
                     }
-                    return Optional.ofNullable(plugin.getCache().getIfPresent(r.getUniqueId()))
-                            .map(name -> "#" + name)
-                            .orElseGet(() -> "#" + r.getType().name().toLowerCase(Locale.ROOT));
+                    String projectileCause = plugin.getProjectileCache().getIfPresent(r.getUniqueId());
+                    if (projectileCause != null) {
+                        return "#" + projectileCause;
+                    }
+                    String aggroCause = plugin.getEntityAggroCache().getIfPresent(r.getUniqueId());
+                    if (aggroCause != null) {
+                        return "#" + r.getType().name().toLowerCase(Locale.ROOT) + "-" + aggroCause;
+                    }
+                    return "#" + r.getType().name().toLowerCase(Locale.ROOT);
                 })
                 .orElse(null);
     }
