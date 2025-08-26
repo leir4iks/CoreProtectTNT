@@ -41,7 +41,6 @@ public class ExplosionListener implements Listener {
     private static final double INTERACTIVE_EXPLOSION_RADIUS = 5.0;
     private static final double INTERACTIVE_EXPLOSION_ITEM_VELOCITY_MULTIPLIER = 0.8;
     private static final double MACE_PLAYER_SEARCH_RADIUS = 2.0;
-    private static final double WIND_CHARGE_MACE_SEARCH_RADIUS = 1.5;
 
     public ExplosionListener(Main plugin) {
         this.plugin = plugin;
@@ -155,7 +154,6 @@ public class ExplosionListener implements Listener {
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
             String shooterName = this.plugin.getProjectileCache().getIfPresent(e.getEntity().getUniqueId());
             if (shooterName == null) shooterName = "#world";
-
             handleWindChargeExplosion(e, shooterName);
             return;
         }

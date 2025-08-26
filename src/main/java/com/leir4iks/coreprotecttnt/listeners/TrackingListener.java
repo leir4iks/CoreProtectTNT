@@ -100,7 +100,7 @@ public class TrackingListener implements Listener {
         ProjectileSource shooter = projectile.getShooter();
         if (shooter == null) return;
 
-        String finalCause = "world";
+        String finalCause = "#world";
         String projectileName = projectile.getType().name().toLowerCase(Locale.ROOT);
 
         if (shooter instanceof Player player) {
