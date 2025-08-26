@@ -41,6 +41,7 @@ public class ExplosionListener implements Listener {
     private static final double INTERACTIVE_EXPLOSION_RADIUS = 5.0;
     private static final double INTERACTIVE_EXPLOSION_ITEM_VELOCITY_MULTIPLIER = 0.8;
     private static final double MACE_PLAYER_SEARCH_RADIUS = 2.0;
+    private static final double WIND_CHARGE_MACE_SEARCH_RADIUS = 1.5;
 
     public ExplosionListener(Main plugin) {
         this.plugin = plugin;
@@ -153,8 +154,23 @@ public class ExplosionListener implements Listener {
 
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
             String shooterName = this.plugin.getProjectileCache().getIfPresent(e.getEntity().getUniqueId());
-            if (shooterName == null) shooterName = "#world";
-            handleWindChargeExplosion(e, shooterName);
+            if (shooterName == null) shooterName = "world";
+
+            boolean isMaceRelated = false;
+            Player shooter = this.plugin.getServer().getPlayerExact(Util.getRootCause(shooterName));
+            if (shooter != null && shooter.getWorld().equals(e.getLocation().getWorld()) &&
+                    shooter.getLocation().distanceSquared(e.getLocation()) < WIND_CHARGE_MACE_SEARCH_RADIUS * WIND_CHARGE_MACE_SEARCH_RADIUS) {
+                if (isHoldingMace(shooter)) {
+                    isMaceRelated = true;
+                }
+            }
+
+            String reason = isMaceRelated ? "#mace-" + shooterName : shooterName;
+            if (isDebug) logger.info("[Debug] Cause: " + (isMaceRelated ? "Mace entity smash" : "Wind Charge") + ". Processing interactions.");
+
+            List<Block> affectedBlocks = new ArrayList<>(e.blockList());
+            e.blockList().clear();
+            handleInteractiveExplosion(affectedBlocks, reason, e.getLocation());
             return;
         }
 
@@ -204,17 +220,6 @@ public class ExplosionListener implements Listener {
         this.plugin.getProjectileCache().invalidate(entity.getUniqueId());
     }
 
-    private void handleWindChargeExplosion(EntityExplodeEvent e, String reason) {
-        List<Block> affectedBlocks = new ArrayList<>(e.blockList());
-        e.blockList().clear();
-
-        for (Block block : affectedBlocks) {
-            this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
-        }
-
-        handleHangingEntitiesInExplosion(e.getLocation(), e.getYield(), reason);
-    }
-
     private void handleHangingEntitiesInExplosion(Location center, float yield, String reason) {
         double radius = Math.max(yield, 5.0f);
         Collection<Hanging> hangingEntities = center.getWorld().getNearbyEntities(center, radius, radius, radius, entity -> entity instanceof Hanging).stream()
@@ -223,6 +228,8 @@ public class ExplosionListener implements Listener {
 
         for (Hanging hanging : hangingEntities) {
             if (hanging.isDead()) continue;
+            if (plugin.getProcessedEntities().getIfPresent(hanging.getUniqueId()) != null) continue;
+
             plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
 
             Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;

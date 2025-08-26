@@ -1,7 +1,6 @@
 package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
-import com.leir4iks.coreprotecttnt.Util;
 import org.bukkit.Location;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -100,7 +99,7 @@ public class TrackingListener implements Listener {
         ProjectileSource shooter = projectile.getShooter();
         if (shooter == null) return;
 
-        String finalCause = "#world";
+        String finalCause = "world";
         String projectileName = projectile.getType().name().toLowerCase(Locale.ROOT);
 
         if (shooter instanceof Player player) {
