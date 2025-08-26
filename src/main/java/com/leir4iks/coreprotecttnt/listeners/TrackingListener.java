@@ -48,7 +48,7 @@ public class TrackingListener implements Listener {
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Caching block place at " + event.getBlock().getLocation() + " by " + event.getPlayer().getName());
         }
-        this.plugin.getCache().put(event.getBlock().getLocation(), event.getPlayer().getName());
+        this.plugin.getBlockPlaceCache().put(event.getBlock().getLocation(), event.getPlayer().getName());
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -56,13 +56,13 @@ public class TrackingListener implements Listener {
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Caching block break at " + event.getBlock().getLocation() + " by " + event.getPlayer().getName());
         }
-        this.plugin.getCache().put(event.getBlock().getLocation(), event.getPlayer().getName());
+        this.plugin.getBlockPlaceCache().put(event.getBlock().getLocation(), event.getPlayer().getName());
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerDamageMob(EntityDamageByEntityEvent e) {
         if (e.getDamager() instanceof Player && e.getEntity() instanceof Mob) {
-            this.plugin.getCache().put(e.getEntity().getUniqueId(), e.getDamager().getName());
+            this.plugin.getEntityAggroCache().put(e.getEntity().getUniqueId(), e.getDamager().getName());
         }
     }
 
@@ -73,23 +73,23 @@ public class TrackingListener implements Listener {
             String placer = null;
 
             for (Vector vec : WITHER_SKULL_VECTORS) {
-                placer = this.plugin.getCache().getIfPresent(spawnLoc.clone().add(vec));
+                placer = this.plugin.getBlockPlaceCache().getIfPresent(spawnLoc.clone().add(vec));
                 if (placer != null) break;
             }
 
             if (placer == null) {
                 for (Vector vec : WITHER_BODY_VECTORS) {
-                    placer = this.plugin.getCache().getIfPresent(spawnLoc.clone().add(vec));
+                    placer = this.plugin.getBlockPlaceCache().getIfPresent(spawnLoc.clone().add(vec));
                     if (placer != null) break;
                 }
             }
 
             if (placer != null) {
-                this.plugin.getCache().put(e.getEntity().getUniqueId(), placer);
+                this.plugin.getEntityAggroCache().put(e.getEntity().getUniqueId(), placer);
             } else {
                 e.getLocation().getNearbyPlayers(WITHER_SPAWN_RADIUS).stream()
                         .min(Comparator.comparingDouble(p -> p.getLocation().distanceSquared(e.getLocation())))
-                        .ifPresent(closestPlayer -> this.plugin.getCache().put(e.getEntity().getUniqueId(), closestPlayer.getName()));
+                        .ifPresent(closestPlayer -> this.plugin.getEntityAggroCache().put(e.getEntity().getUniqueId(), closestPlayer.getName()));
             }
         }
     }
@@ -107,7 +107,7 @@ public class TrackingListener implements Listener {
             finalCause = projectileName + "-" + player.getName();
         } else if (shooter instanceof Mob mob) {
             String mobTypeName = mob.getType().name().toLowerCase(Locale.ROOT);
-            String trackedAggressor = this.plugin.getCache().getIfPresent(mob.getUniqueId());
+            String trackedAggressor = this.plugin.getEntityAggroCache().getIfPresent(mob.getUniqueId());
             if (trackedAggressor != null) {
                 finalCause = projectileName + "-" + mobTypeName + "-" + trackedAggressor;
             } else {
@@ -115,13 +115,18 @@ public class TrackingListener implements Listener {
             }
         } else if (shooter instanceof BlockProjectileSource bps) {
             Location loc = bps.getBlock().getLocation();
-            finalCause = "#dispenser@[" + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ() + "]";
+            String blockInitiator = this.plugin.getBlockPlaceCache().getIfPresent(loc);
+            if (blockInitiator != null) {
+                finalCause = projectileName + "-" + blockInitiator;
+            } else {
+                finalCause = "#dispenser@[" + loc.getBlockX() + "," + loc.getBlockY() + "," + loc.getBlockZ() + "]";
+            }
         }
 
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Caching projectile " + projectile.getUniqueId() + " with cause: " + finalCause);
         }
-        this.plugin.getCache().put(projectile.getUniqueId(), finalCause);
+        this.plugin.getProjectileCache().put(projectile.getUniqueId(), finalCause);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -131,17 +136,17 @@ public class TrackingListener implements Listener {
         String initiator = null;
 
         if (source != null) {
-            String sourceReason = this.plugin.getCache().getIfPresent(source.getUniqueId());
-            if (sourceReason != null) {
-                initiator = sourceReason;
-            } else if (source instanceof Player) {
-                initiator = source.getName();
+            initiator = this.plugin.getProjectileCache().getIfPresent(source.getUniqueId());
+            if (initiator == null) {
+                if (source instanceof Player) {
+                    initiator = source.getName();
+                }
             }
         }
 
         if (initiator == null) {
             Location blockLocation = tntPrimed.getLocation().getBlock().getLocation();
-            initiator = this.plugin.getCache().getIfPresent(blockLocation);
+            initiator = this.plugin.getBlockPlaceCache().getIfPresent(blockLocation);
         }
 
         if (initiator == null) {
@@ -150,7 +155,7 @@ public class TrackingListener implements Listener {
                 for (int y = -TNT_NEARBY_SOURCE_RADIUS; y <= TNT_NEARBY_SOURCE_RADIUS; y++) {
                     for (int z = -TNT_NEARBY_SOURCE_RADIUS; z <= TNT_NEARBY_SOURCE_RADIUS; z++) {
                         Location checkLoc = tntLocation.clone().add(x, y, z);
-                        String nearbySource = this.plugin.getCache().getIfPresent(checkLoc.getBlock().getLocation());
+                        String nearbySource = this.plugin.getBlockPlaceCache().getIfPresent(checkLoc.getBlock().getLocation());
                         if (nearbySource != null) {
                             initiator = nearbySource;
                             if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Found nearby source for TNT: " + initiator + " at " + checkLoc);
@@ -165,7 +170,7 @@ public class TrackingListener implements Listener {
 
         if (initiator != null) {
             if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Tracking TNT " + tntPrimed.getUniqueId() + " from source: " + initiator);
-            this.plugin.getCache().put(tntPrimed.getUniqueId(), initiator);
+            this.plugin.getProjectileCache().put(tntPrimed.getUniqueId(), initiator);
         }
     }
 }

@@ -85,7 +85,7 @@ public class ExplosionListener implements Listener {
     public void onEntityChangeBlock(EntityChangeBlockEvent e) {
         if (!(e.getEntity() instanceof Mob mob)) return;
 
-        String cause = this.plugin.getCache().getIfPresent(mob.getUniqueId());
+        String cause = this.plugin.getEntityAggroCache().getIfPresent(mob.getUniqueId());
         if (cause == null && mob.getTarget() instanceof Player target) {
             cause = target.getName();
         }
@@ -128,7 +128,7 @@ public class ExplosionListener implements Listener {
         if (!section.getBoolean("enable", true)) return;
 
         Location location = e.getBlock().getLocation();
-        String initiator = this.plugin.getCache().getIfPresent(location);
+        String initiator = this.plugin.getBlockPlaceCache().getIfPresent(location);
 
         if (initiator == null && section.getBoolean("disable-unknown", false)) {
             e.blockList().clear();
@@ -153,7 +153,7 @@ public class ExplosionListener implements Listener {
         }
 
         if (e.getEntityType() == EntityType.WIND_CHARGE) {
-            String shooterName = this.plugin.getCache().getIfPresent(e.getEntity().getUniqueId());
+            String shooterName = this.plugin.getProjectileCache().getIfPresent(e.getEntity().getUniqueId());
             if (shooterName == null) shooterName = "world";
 
             boolean isMaceRelated = false;
@@ -182,14 +182,14 @@ public class ExplosionListener implements Listener {
         if (!section.getBoolean("enable", true)) return;
 
         Entity entity = e.getEntity();
-        String track = this.plugin.getCache().getIfPresent(entity.getUniqueId());
+        String track = this.plugin.getProjectileCache().getIfPresent(entity.getUniqueId());
 
         if (track == null) {
             if (entity instanceof Creeper creeper && creeper.getTarget() != null) {
                 track = creeper.getTarget().getName();
             } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
                 Entity damager = event.getDamager();
-                String damagerTrack = this.plugin.getCache().getIfPresent(damager.getUniqueId());
+                String damagerTrack = this.plugin.getProjectileCache().getIfPresent(damager.getUniqueId());
                 if (damagerTrack != null) {
                     track = Util.createChainedCause(damager, damagerTrack);
                 } else {
@@ -217,7 +217,7 @@ public class ExplosionListener implements Listener {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
         }
         handleHangingEntitiesInExplosion(e.getLocation(), e.getYield(), reason);
-        this.plugin.getCache().invalidate(entity.getUniqueId());
+        this.plugin.getProjectileCache().invalidate(entity.getUniqueId());
     }
 
     private void handleHangingEntitiesInExplosion(Location center, float yield, String reason) {
@@ -248,16 +248,16 @@ public class ExplosionListener implements Listener {
         if (clickedBlock == null) return;
 
         if (clickedBlock.getBlockData() instanceof Bed) {
-            this.plugin.getCache().put(clickedBlock.getLocation(), "#bed-" + e.getPlayer().getName());
+            this.plugin.getBlockPlaceCache().put(clickedBlock.getLocation(), "#bed-" + e.getPlayer().getName());
         } else if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
-            this.plugin.getCache().put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
+            this.plugin.getBlockPlaceCache().put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
         }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPlayerInteractCreeper(PlayerInteractEntityEvent e) {
         if (e.getRightClicked().getType() == EntityType.CREEPER && e.getPlayer().getInventory().getItemInMainHand().getType() == Material.FLINT_AND_STEEL) {
-            this.plugin.getCache().put(e.getRightClicked().getUniqueId(), "#ignitecreeper-" + e.getPlayer().getName());
+            this.plugin.getEntityAggroCache().put(e.getRightClicked().getUniqueId(), "#ignitecreeper-" + e.getPlayer().getName());
         }
     }
 }
