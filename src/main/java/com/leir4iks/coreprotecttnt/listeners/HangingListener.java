@@ -130,7 +130,7 @@ public class HangingListener implements Listener {
                     }
                     String projectileCause = plugin.getProjectileCache().getIfPresent(r.getUniqueId());
                     if (projectileCause != null) {
-                        return "#" + projectileCause;
+                        return projectileCause.startsWith("#") ? projectileCause : "#" + projectileCause;
                     }
                     String aggroCause = plugin.getEntityAggroCache().getIfPresent(r.getUniqueId());
                     if (aggroCause != null) {
