@@ -4,17 +4,17 @@ import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.Rotation;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.*;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Hanging;
+import org.bukkit.entity.ItemFrame;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -29,34 +29,10 @@ public class HangingListener implements Listener {
         this.logger = plugin.getLogger();
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onClickItemFrame(PlayerInteractEntityEvent e) {
-        if (!(e.getRightClicked() instanceof ItemFrame itemFrame)) return;
-
-        ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "itemframe");
-        if (!section.getBoolean("enable", true)) return;
-
-        Player player = e.getPlayer();
-        ItemStack itemBefore = itemFrame.getItem().clone();
-        Rotation rotationBefore = itemFrame.getRotation();
-
-        Main.getScheduler().runTask(() -> {
-            ItemStack itemAfter = itemFrame.getItem();
-            Rotation rotationAfter = itemFrame.getRotation();
-
-            boolean itemAddedOrRemoved = !itemBefore.isSimilar(itemAfter);
-            boolean onlyRotated = !itemAddedOrRemoved && rotationBefore != rotationAfter;
-
-            if (onlyRotated) {
-                plugin.getApi().logInteraction("#rotate-" + player.getName(), itemFrame.getLocation());
-            } else if (itemAddedOrRemoved) {
-                plugin.getApi().logContainerTransaction(player.getName(), itemFrame.getLocation());
-            }
-        });
-    }
-
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onHangingBreak(HangingBreakEvent e) {
+        if (e.getEntity() instanceof ItemFrame) return;
+
         if (e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION) {
             e.setCancelled(true);
             return;
@@ -84,6 +60,8 @@ public class HangingListener implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onHangingHit(HangingBreakByEntityEvent e) {
+        if (e.getEntity() instanceof ItemFrame) return;
+
         Hanging hanging = e.getEntity();
         if (plugin.getProcessedEntities().getIfPresent(hanging.getUniqueId()) != null) {
             e.setCancelled(true);
@@ -96,7 +74,7 @@ public class HangingListener implements Listener {
             logger.info("[Debug] Event: HangingBreakByEntityEvent | Entity: " + hanging.getType() + " | Remover: " + (e.getRemover() != null ? e.getRemover().getType() : "null"));
         }
 
-        ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), hanging instanceof ItemFrame ? "itemframe" : "hanging");
+        ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "hanging");
         if (!section.getBoolean("enable", true)) return;
 
         String removerName = getRemoverName(e.getRemover());
@@ -109,19 +87,6 @@ public class HangingListener implements Listener {
         }
 
         logHangingRemoval(hanging, removerName);
-    }
-
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
-    public void onItemFrameDamage(EntityDamageByEntityEvent e) {
-        if (!(e.getEntity() instanceof ItemFrame itemFrame) || !(e.getDamager() instanceof Projectile projectile)) return;
-        if (plugin.getProcessedEntities().getIfPresent(itemFrame.getUniqueId()) != null) return;
-        if (itemFrame.getItem().getType() == Material.AIR || itemFrame.isDead()) return;
-
-        String initiator = plugin.getProjectileCache().getIfPresent(projectile.getUniqueId());
-        if (initiator == null) return;
-
-        String reason = initiator.startsWith("#") ? initiator : "#" + initiator;
-        plugin.getApi().logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
     }
 
     private String getRemoverName(Entity remover) {
@@ -144,12 +109,7 @@ public class HangingListener implements Listener {
     }
 
     private void logHangingRemoval(Hanging hanging, String reason) {
-        Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;
-        plugin.getApi().logRemoval(reason, hanging.getLocation(), material, null);
-        if (hanging instanceof ItemFrame itemFrame) {
-            if (itemFrame.getItem().getType() != Material.AIR) {
-                plugin.getApi().logRemoval(reason, hanging.getLocation(), itemFrame.getItem().getType(), null);
-            }
-        }
+        if (hanging.getType() != EntityType.PAINTING) return;
+        plugin.getApi().logRemoval(reason, hanging.getLocation(), Material.PAINTING, null);
     }
 }

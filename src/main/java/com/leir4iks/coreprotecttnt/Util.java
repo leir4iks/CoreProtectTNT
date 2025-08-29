@@ -4,8 +4,10 @@ import org.bukkit.ChatColor;
 import org.bukkit.Location;
 import org.bukkit.configuration.Configuration;
 import org.bukkit.configuration.ConfigurationSection;
+import org.bukkit.entity.Creeper;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 
 import java.util.Locale;
 
@@ -50,5 +52,29 @@ public class Util {
          return parts[parts.length - 1];
       }
       return cause;
+   }
+
+   public static String getEntityExplosionCause(Entity entity, Main plugin) {
+      if (entity == null) return null;
+
+      String track = plugin.getProjectileCache().getIfPresent(entity.getUniqueId());
+      if (track != null) {
+         return track;
+      }
+
+      if (entity instanceof Creeper creeper && creeper.getTarget() != null) {
+         return creeper.getTarget().getName();
+      }
+
+      if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
+         Entity damager = event.getDamager();
+         String damagerTrack = plugin.getProjectileCache().getIfPresent(damager.getUniqueId());
+         if (damagerTrack != null) {
+            return createChainedCause(damager, damagerTrack);
+         } else {
+            return damager.getType().name().toLowerCase(Locale.ROOT);
+         }
+      }
+      return null;
    }
 }

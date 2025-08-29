@@ -6,6 +6,7 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.leir4iks.coreprotecttnt.listeners.ExplosionListener;
 import com.leir4iks.coreprotecttnt.listeners.FireListener;
+import com.leir4iks.coreprotecttnt.listeners.FrameListener;
 import com.leir4iks.coreprotecttnt.listeners.HangingListener;
 import com.leir4iks.coreprotecttnt.listeners.TrackingListener;
 import net.coreprotect.CoreProtect;
@@ -71,6 +72,7 @@ public class Main extends JavaPlugin {
       Bukkit.getPluginManager().registerEvents(new FireListener(this), this);
       Bukkit.getPluginManager().registerEvents(new HangingListener(this), this);
       Bukkit.getPluginManager().registerEvents(new TrackingListener(this), this);
+      Bukkit.getPluginManager().registerEvents(new FrameListener(this), this);
    }
 
    public CoreProtectAPI getApi() {

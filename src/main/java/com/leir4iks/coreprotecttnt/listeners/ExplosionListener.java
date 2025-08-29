@@ -20,7 +20,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -181,22 +180,7 @@ public class ExplosionListener implements Listener {
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "entity-explosion");
         if (!section.getBoolean("enable", true)) return;
 
-        Entity entity = e.getEntity();
-        String track = this.plugin.getProjectileCache().getIfPresent(entity.getUniqueId());
-
-        if (track == null) {
-            if (entity instanceof Creeper creeper && creeper.getTarget() != null) {
-                track = creeper.getTarget().getName();
-            } else if (entity.getLastDamageCause() instanceof EntityDamageByEntityEvent event) {
-                Entity damager = event.getDamager();
-                String damagerTrack = this.plugin.getProjectileCache().getIfPresent(damager.getUniqueId());
-                if (damagerTrack != null) {
-                    track = Util.createChainedCause(damager, damagerTrack);
-                } else {
-                    track = damager.getType().name().toLowerCase(Locale.ROOT);
-                }
-            }
-        }
+        String track = Util.getEntityExplosionCause(e.getEntity(), plugin);
 
         if (track == null) {
             if (section.getBoolean("disable-unknown", false)) {
@@ -206,7 +190,7 @@ public class ExplosionListener implements Listener {
             return;
         }
 
-        String entityName = e.getEntityType() == EntityType.TNT ? "tnt" : e.getEntityType().name().toLowerCase(Locale.ROOT);
+        String entityName = e.getEntityType().name().toLowerCase(Locale.ROOT);
         String reason = "#" + entityName + "-" + Util.getRootCause(track);
 
         if (isDebug) {
@@ -217,12 +201,12 @@ public class ExplosionListener implements Listener {
             this.plugin.getApi().logRemoval(reason, block.getLocation(), block.getType(), block.getBlockData());
         }
         handleHangingEntitiesInExplosion(e.getLocation(), e.getYield(), reason);
-        this.plugin.getProjectileCache().invalidate(entity.getUniqueId());
+        this.plugin.getProjectileCache().invalidate(e.getEntity().getUniqueId());
     }
 
     private void handleHangingEntitiesInExplosion(Location center, float yield, String reason) {
         double radius = Math.max(yield, 5.0f);
-        Collection<Hanging> hangingEntities = center.getWorld().getNearbyEntities(center, radius, radius, radius, entity -> entity instanceof Hanging).stream()
+        Collection<Hanging> hangingEntities = center.getWorld().getNearbyEntities(center, radius, radius, radius, entity -> entity instanceof Hanging && !(entity instanceof ItemFrame)).stream()
                 .map(Hanging.class::cast)
                 .toList();
 
@@ -232,13 +216,7 @@ public class ExplosionListener implements Listener {
 
             plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
 
-            Material material = hanging.getType() == EntityType.ITEM_FRAME ? Material.ITEM_FRAME : Material.PAINTING;
-            plugin.getApi().logRemoval(reason, hanging.getLocation(), material, null);
-            if (hanging instanceof ItemFrame itemFrame) {
-                if (itemFrame.getItem().getType() != Material.AIR) {
-                    plugin.getApi().logRemoval(reason, hanging.getLocation(), itemFrame.getItem().getType(), null);
-                }
-            }
+            plugin.getApi().logRemoval(reason, hanging.getLocation(), Material.PAINTING, null);
             hanging.remove();
         }
     }
