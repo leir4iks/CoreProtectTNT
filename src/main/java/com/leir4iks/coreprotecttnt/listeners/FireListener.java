@@ -13,7 +13,6 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBurnEvent;
 import org.bukkit.event.block.BlockIgniteEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.BoundingBox;
 
 import java.util.Locale;
@@ -130,12 +129,9 @@ public class FireListener implements Listener {
     }
 
     private void startCleanupTask() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                long now = System.currentTimeMillis();
-                activeFires.values().removeIf(source -> (now - source.lastActivity) > FIRE_SOURCE_TIMEOUT);
-            }
-        }.runTaskTimerAsynchronously(this.plugin, 200L, 200L);
+        Main.getScheduler().runTaskTimerAsynchronously(() -> {
+            long now = System.currentTimeMillis();
+            activeFires.values().removeIf(source -> (now - source.lastActivity) > FIRE_SOURCE_TIMEOUT);
+        }, 200L, 200L);
     }
 }

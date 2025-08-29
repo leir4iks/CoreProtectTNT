@@ -13,7 +13,6 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.concurrent.CompletableFuture;
 
 public class UpdateChecker {
 
@@ -41,7 +40,7 @@ public class UpdateChecker {
     }
 
     private void performCheck(CommandSender notifier) {
-        CompletableFuture.runAsync(() -> {
+        Main.getScheduler().runTaskAsynchronously(() -> {
             try {
                 URL url = new URL(API_URL);
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -77,7 +76,7 @@ public class UpdateChecker {
     }
 
     private void downloadUpdate(CommandSender notifier) {
-        CompletableFuture.runAsync(() -> {
+        Main.getScheduler().runTaskAsynchronously(() -> {
             try {
                 File updateFolder = new File(plugin.getServer().getUpdateFolderFile(), "");
                 if (!updateFolder.exists()) {

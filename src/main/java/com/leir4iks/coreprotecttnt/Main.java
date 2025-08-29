@@ -1,5 +1,7 @@
 package com.leir4iks.coreprotecttnt;
 
+import com.github.Anon8281.universalScheduler.UniversalScheduler;
+import com.github.Anon8281.universalScheduler.task.TaskScheduler;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.leir4iks.coreprotecttnt.listeners.ExplosionListener;
@@ -30,10 +32,13 @@ public class Main extends JavaPlugin {
 
    private CoreProtectAPI api;
    private UpdateChecker updateChecker;
+   private static TaskScheduler scheduler;
 
    @Override
    public void onEnable() {
       saveDefaultConfig();
+
+      scheduler = UniversalScheduler.getScheduler(this);
 
       new Metrics(this, 26755);
 
@@ -70,6 +75,10 @@ public class Main extends JavaPlugin {
 
    public CoreProtectAPI getApi() {
       return api;
+   }
+
+   public static TaskScheduler getScheduler() {
+      return scheduler;
    }
 
    public Cache<Location, String> getBlockPlaceCache() {

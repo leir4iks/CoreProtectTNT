@@ -2,7 +2,6 @@ package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
-import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Rotation;
@@ -41,7 +40,7 @@ public class HangingListener implements Listener {
         ItemStack itemBefore = itemFrame.getItem().clone();
         Rotation rotationBefore = itemFrame.getRotation();
 
-        Bukkit.getScheduler().runTask(plugin, () -> {
+        Main.getScheduler().runTask(() -> {
             ItemStack itemAfter = itemFrame.getItem();
             Rotation rotationAfter = itemFrame.getRotation();
 
