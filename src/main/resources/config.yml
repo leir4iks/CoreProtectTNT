@@ -46,6 +46,19 @@ itemframe:
   disable-unknown: false
   # The message sent to nearby players when an item frame destruction is blocked.
   alert: "&cThe destruction of an item frame was blocked because its source is unknown."
+  # Log when a player places an item frame.
+  log-placement: true
+  # Log when a player rotates an item in a frame
+  log-rotation: true
+  # Log when a player adds or removes an item from a frame
+  log-content-change: true
+  # Log when a piston breaks an item frame
+  log-piston-destruction: true
+  # Log when water breaks an item frame
+  log-water-destruction: true
+  # Log when an item frame is broken due to the block it was attached to being destroyed
+  log-physics-destruction: true
+
 
 # Settings for other hanging entities (e.g., Paintings)
 hanging:

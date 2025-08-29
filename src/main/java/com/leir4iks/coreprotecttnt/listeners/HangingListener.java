@@ -43,6 +43,11 @@ public class HangingListener implements Listener {
             logger.info("[Debug] Event: HangingBreakEvent | Entity: " + e.getEntity().getType() + " | Cause: " + e.getCause());
         }
 
+        if (e.getCause() == HangingBreakEvent.RemoveCause.PHYSICS) {
+            logHangingRemoval(e.getEntity(), "#environment");
+            return;
+        }
+
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "hanging");
         if (!section.getBoolean("enable", true)) return;
         Location hangingLocation = e.getEntity().getLocation().getBlock().getLocation();
