@@ -1,7 +1,7 @@
 package com.leir4iks.coreprotecttnt;
 
-import com.github.Anon8281.universalScheduler.TaskScheduler;
-import com.github.Anon8281.universalScheduler.UniversalScheduler;
+import com.github.anon8281.universalscheduler.TaskScheduler;
+import com.github.anon8281.universalscheduler.UniversalScheduler;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.leir4iks.coreprotecttnt.listeners.ExplosionListener;
