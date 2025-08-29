@@ -94,7 +94,7 @@
                                     <shadedPattern>com.leir4iks.coreprotecttnt.libs.bstats</shadedPattern>
                                 </relocation>
                                 <relocation>
-                                    <pattern>com.github.Anon8281.universalScheduler</pattern>
+                                    <pattern>com.github.anon8281.universalscheduler</pattern>
                                     <shadedPattern>com.leir4iks.coreprotecttnt.libs.universalscheduler</shadedPattern>
                                 </relocation>
                             </relocations>
