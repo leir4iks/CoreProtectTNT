@@ -20,7 +20,6 @@ import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.util.BoundingBox;
 
 import java.util.Collection;
 import java.util.Locale;
@@ -46,7 +45,8 @@ public class FrameListener implements Listener {
         if (plugin.getConfig().getBoolean("debug")) {
             logger.info("[Debug] ItemFrame placed at " + itemFrame.getLocation() + " by " + e.getPlayer().getName());
         }
-        plugin.getApi().logPlacement(e.getPlayer().getName(), itemFrame.getLocation(), itemFrame.getType().isAir() ? Material.ITEM_FRAME : Material.GLOW_ITEM_FRAME, null);
+        Material frameMaterial = (itemFrame.getType() == EntityType.GLOW_ITEM_FRAME) ? Material.GLOW_ITEM_FRAME : Material.ITEM_FRAME;
+        plugin.getApi().logPlacement(e.getPlayer().getName(), itemFrame.getLocation(), frameMaterial, null);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -182,7 +182,7 @@ public class FrameListener implements Listener {
     }
 
     private void logFrameRemoval(ItemFrame itemFrame, String reason) {
-        Material frameMaterial = itemFrame.isVisible() ? (itemFrame.isGlowing() ? Material.GLOW_ITEM_FRAME : Material.ITEM_FRAME) : Material.ITEM_FRAME;
+        Material frameMaterial = itemFrame.isGlowing() ? Material.GLOW_ITEM_FRAME : Material.ITEM_FRAME;
         plugin.getApi().logRemoval(reason, itemFrame.getLocation(), frameMaterial, null);
         if (itemFrame.getItem().getType() != Material.AIR) {
             plugin.getApi().logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
