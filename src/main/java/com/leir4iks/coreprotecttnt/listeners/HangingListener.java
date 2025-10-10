@@ -49,7 +49,7 @@ public class HangingListener implements Listener {
         ItemStack itemBefore = frame.getItem().clone();
         Rotation rotationBefore = frame.getRotation();
 
-        Main.getScheduler().runTaskOnEntity(frame, () -> {
+        Main.getScheduler().runTask(frame, () -> {
             if (frame.isDead()) return;
             ItemStack itemAfter = frame.getItem();
             Rotation rotationAfter = frame.getRotation();
