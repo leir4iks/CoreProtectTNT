@@ -4,117 +4,184 @@ import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
 import org.bukkit.Location;
 import org.bukkit.Material;
+import org.bukkit.Rotation;
+import org.bukkit.block.Block;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.EntityType;
-import org.bukkit.entity.Hanging;
-import org.bukkit.entity.ItemFrame;
-import org.bukkit.entity.Player;
+import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockFromToEvent;
+import org.bukkit.event.block.BlockPistonExtendEvent;
+import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakByEntityEvent;
 import org.bukkit.event.hanging.HangingBreakEvent;
+import org.bukkit.event.hanging.HangingBreakEvent.RemoveCause;
+import org.bukkit.event.hanging.HangingPlaceEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.inventory.ItemStack;
 
 import java.util.Locale;
 import java.util.Optional;
-import java.util.logging.Logger;
 
 public class HangingListener implements Listener {
+
     private final Main plugin;
-    private final Logger logger;
 
     public HangingListener(Main plugin) {
         this.plugin = plugin;
-        this.logger = plugin.getLogger();
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
-    public void onHangingBreak(HangingBreakEvent e) {
-        if (e.getEntity() instanceof ItemFrame) return;
-
-        if (e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION) {
-            e.setCancelled(true);
-            return;
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onHangingPlace(HangingPlaceEvent e) {
+        if (e.getEntity() instanceof ItemFrame frame) {
+            Material frameMaterial = (frame.getType() == EntityType.GLOW_ITEM_FRAME) ? Material.GLOW_ITEM_FRAME : Material.ITEM_FRAME;
+            plugin.getApi().logPlacement(e.getPlayer().getName(), frame.getLocation(), frameMaterial, null);
         }
+    }
 
-        if (plugin.getProcessedEntities().getIfPresent(e.getEntity().getUniqueId()) != null) return;
-        if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("[Debug] Event: HangingBreakEvent | Entity: " + e.getEntity().getType() + " | Cause: " + e.getCause());
-        }
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFrameInteract(PlayerInteractEntityEvent e) {
+        if (e.isCancelled() || !(e.getRightClicked() instanceof ItemFrame frame)) return;
 
-        if (e.getCause() == HangingBreakEvent.RemoveCause.PHYSICS) {
-            logHangingRemoval(e.getEntity(), "#environment");
-            return;
-        }
+        Player player = e.getPlayer();
+        ItemStack itemBefore = frame.getItem().clone();
+        Rotation rotationBefore = frame.getRotation();
 
-        ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "hanging");
-        if (!section.getBoolean("enable", true)) return;
-        Location hangingLocation = e.getEntity().getLocation().getBlock().getLocation();
-        String reason = this.plugin.getBlockPlaceCache().getIfPresent(hangingLocation);
-        if (reason == null) {
-            if (section.getBoolean("disable-unknown")) {
-                e.setCancelled(true);
-                Util.broadcastNearPlayers(e.getEntity().getLocation(), section.getString("alert"));
+        Main.getScheduler().runTask(() -> {
+            if (frame.isDead()) return;
+            ItemStack itemAfter = frame.getItem();
+            Rotation rotationAfter = frame.getRotation();
+
+            if (itemBefore.isSimilar(itemAfter) && rotationBefore == rotationAfter) return;
+
+            if (itemBefore.isSimilar(itemAfter) && rotationBefore != rotationAfter) {
+                if (getSectionForEntity(frame).getBoolean("log-rotation", true)) {
+                    plugin.getApi().logInteraction("#rotate-" + player.getName(), frame.getLocation());
+                }
+                return;
             }
-            return;
-        }
-        String cause = "#" + e.getCause().name().toLowerCase(Locale.ROOT) + "-" + reason;
-        logHangingRemoval(e.getEntity(), cause);
+
+            if (!itemBefore.isSimilar(itemAfter)) {
+                if (getSectionForEntity(frame).getBoolean("log-content-change", true)) {
+                    plugin.getCoreProtectHook().logFrameTransaction(player, frame, itemBefore, itemAfter);
+                }
+            }
+        });
     }
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
-    public void onHangingHit(HangingBreakByEntityEvent e) {
-        if (e.getEntity() instanceof ItemFrame) return;
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onHangingDamage(EntityDamageByEntityEvent e) {
+        if (e.getEntity() instanceof Hanging hanging) {
+            String cause = getRemoverName(e.getDamager());
+            handleHangingRemoval(hanging, cause, null);
+        }
+    }
 
-        Hanging hanging = e.getEntity();
-        if (plugin.getProcessedEntities().getIfPresent(hanging.getUniqueId()) != null) {
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onHangingBreak(HangingBreakEvent e) {
+        if (!(e.getEntity() instanceof Hanging hanging)) return;
+        if (plugin.getProcessedEntities().getIfPresent(hanging.getUniqueId()) != null) return;
+
+        if (e.getCause() == RemoveCause.EXPLOSION) {
             e.setCancelled(true);
             return;
         }
 
+        if (hanging instanceof ItemFrame) {
+            String cause = (e instanceof HangingBreakByEntityEvent entityEvent) ? getRemoverName(entityEvent.getRemover()) : "#" + e.getCause().name().toLowerCase(Locale.ROOT);
+            handleHangingRemoval(hanging, cause, e);
+        } else {
+            String cause;
+            if (e.getCause() == RemoveCause.PHYSICS) {
+                cause = "#environment";
+            } else {
+                Location hangingLocation = hanging.getLocation().getBlock().getLocation();
+                String reason = plugin.getBlockPlaceCache().getIfPresent(hangingLocation);
+                if (reason == null) {
+                    if (getSectionForEntity(hanging).getBoolean("disable-unknown")) {
+                        e.setCancelled(true);
+                        Util.broadcastNearPlayers(hanging.getLocation(), getSectionForEntity(hanging).getString("alert"));
+                    }
+                    return;
+                }
+                cause = "#" + e.getCause().name().toLowerCase(Locale.ROOT) + "-" + reason;
+            }
+            handleHangingRemoval(hanging, cause, e);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonExtend(BlockPistonExtendEvent e) {
+        for (Block block : e.getBlocks()) {
+            handleMechanicalBreak(block.getRelative(e.getDirection()), "#piston");
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPistonRetract(BlockPistonRetractEvent e) {
+        if (!e.isSticky()) return;
+        for (Block block : e.getBlocks()) {
+            handleMechanicalBreak(block.getRelative(e.getDirection()), "#piston");
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onWaterFlow(BlockFromToEvent e) {
+        handleMechanicalBreak(e.getToBlock(), "#water");
+    }
+
+    private void handleMechanicalBreak(Block block, String cause) {
+        block.getLocation().getNearbyEntitiesByType(Hanging.class, 1.5).forEach(hanging -> {
+            if (hanging.getLocation().getBlock().equals(block)) {
+                handleHangingRemoval(hanging, cause, null);
+            }
+        });
+    }
+
+    private void handleHangingRemoval(Hanging hanging, String cause, org.bukkit.event.Cancellable event) {
+        if (plugin.getProcessedEntities().getIfPresent(hanging.getUniqueId()) != null) return;
         plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
 
-        if (plugin.getConfig().getBoolean("debug", false)) {
-            logger.info("[Debug] Event: HangingBreakByEntityEvent | Entity: " + hanging.getType() + " | Remover: " + (e.getRemover() != null ? e.getRemover().getType() : "null"));
-        }
-
-        ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "hanging");
+        ConfigurationSection section = getSectionForEntity(hanging);
         if (!section.getBoolean("enable", true)) return;
 
-        String removerName = getRemoverName(e.getRemover());
-        if (removerName == null) {
-            if (section.getBoolean("disable-unknown")) {
-                e.setCancelled(true);
+        if (cause == null) {
+            if (section.getBoolean("disable-unknown", false)) {
+                if (event != null) event.setCancelled(true);
                 Util.broadcastNearPlayers(hanging.getLocation(), section.getString("alert"));
             }
             return;
         }
 
-        logHangingRemoval(hanging, removerName);
+        if (hanging instanceof ItemFrame frame) {
+            Material frameMaterial = frame.isGlowing() ? Material.GLOW_ITEM_FRAME : Material.ITEM_FRAME;
+            plugin.getApi().logRemoval(cause, frame.getLocation(), frameMaterial, null);
+            if (frame.getItem().getType() != Material.AIR) {
+                plugin.getApi().logRemoval(cause, frame.getLocation(), frame.getItem().getType(), null);
+            }
+        } else if (hanging.getType() == EntityType.PAINTING) {
+            plugin.getApi().logRemoval(cause, hanging.getLocation(), Material.PAINTING, null);
+        }
     }
 
     private String getRemoverName(Entity remover) {
         return Optional.ofNullable(remover)
                 .map(r -> {
-                    if (r instanceof Player) {
-                        return r.getName();
-                    }
+                    if (r instanceof Player) return r.getName();
                     String projectileCause = plugin.getProjectileCache().getIfPresent(r.getUniqueId());
-                    if (projectileCause != null) {
-                        return projectileCause.startsWith("#") ? projectileCause : "#" + projectileCause;
-                    }
+                    if (projectileCause != null) return projectileCause;
                     String aggroCause = plugin.getEntityAggroCache().getIfPresent(r.getUniqueId());
-                    if (aggroCause != null) {
-                        return "#" + r.getType().name().toLowerCase(Locale.ROOT) + "-" + aggroCause;
-                    }
+                    if (aggroCause != null) return Util.createChainedCause(r, aggroCause);
+                    if (r.getType() == EntityType.ENDER_DRAGON) return "#ender_dragon";
                     return "#" + r.getType().name().toLowerCase(Locale.ROOT);
                 })
                 .orElse(null);
     }
 
-    private void logHangingRemoval(Hanging hanging, String reason) {
-        if (hanging.getType() != EntityType.PAINTING) return;
-        plugin.getApi().logRemoval(reason, hanging.getLocation(), Material.PAINTING, null);
+    private ConfigurationSection getSectionForEntity(Hanging hanging) {
+        String path = (hanging instanceof ItemFrame) ? "itemframe" : "hanging";
+        return Util.bakeConfigSection(plugin.getConfig(), path);
     }
 }

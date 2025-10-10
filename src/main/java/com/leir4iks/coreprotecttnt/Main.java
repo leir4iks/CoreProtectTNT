@@ -6,7 +6,6 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.leir4iks.coreprotecttnt.listeners.ExplosionListener;
 import com.leir4iks.coreprotecttnt.listeners.FireListener;
-import com.leir4iks.coreprotecttnt.listeners.FrameListener;
 import com.leir4iks.coreprotecttnt.listeners.HangingListener;
 import com.leir4iks.coreprotecttnt.listeners.TrackingListener;
 import net.coreprotect.CoreProtect;
@@ -34,6 +33,7 @@ public class Main extends JavaPlugin {
    private CoreProtectAPI api;
    private UpdateChecker updateChecker;
    private static TaskScheduler scheduler;
+   private CoreProtectHook coreProtectHook;
 
    @Override
    public void onEnable() {
@@ -48,6 +48,8 @@ public class Main extends JavaPlugin {
          CoreProtectAPI coreProtectAPI = ((CoreProtect) depend).getAPI();
          if (coreProtectAPI.APIVersion() >= 10) {
             this.api = coreProtectAPI;
+            this.coreProtectHook = new CoreProtectHook(this);
+            this.coreProtectHook.initialize();
             registerListeners();
             getLogger().info("Successfully hooked into CoreProtect API v" + coreProtectAPI.APIVersion());
          } else {
@@ -72,7 +74,6 @@ public class Main extends JavaPlugin {
       Bukkit.getPluginManager().registerEvents(new FireListener(this), this);
       Bukkit.getPluginManager().registerEvents(new HangingListener(this), this);
       Bukkit.getPluginManager().registerEvents(new TrackingListener(this), this);
-      Bukkit.getPluginManager().registerEvents(new FrameListener(this), this);
    }
 
    public CoreProtectAPI getApi() {
@@ -81,6 +82,10 @@ public class Main extends JavaPlugin {
 
    public static TaskScheduler getScheduler() {
       return scheduler;
+   }
+
+   public CoreProtectHook getCoreProtectHook() {
+      return coreProtectHook;
    }
 
    public Cache<Location, String> getBlockPlaceCache() {
