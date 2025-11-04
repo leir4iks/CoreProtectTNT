@@ -206,7 +206,7 @@ public class ExplosionListener implements Listener {
 
     private void handleHangingEntitiesInExplosion(Location center, float yield, String reason) {
         double radius = Math.max(yield, 5.0f);
-        Collection<Hanging> hangingEntities = center.getWorld().getNearbyEntities(center, radius, radius, radius, entity -> entity instanceof Hanging).stream()
+        Collection<Hanging> hangingEntities = center.getWorld().getNearbyEntities(center, radius, radius, radius, entity -> entity instanceof Hanging && !(entity instanceof ItemFrame)).stream()
                 .map(Hanging.class::cast)
                 .toList();
 
@@ -216,15 +216,7 @@ public class ExplosionListener implements Listener {
 
             plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
 
-            if (hanging instanceof ItemFrame itemFrame) {
-                Material frameMaterial = itemFrame.isGlowing() ? Material.GLOW_ITEM_FRAME : Material.ITEM_FRAME;
-                plugin.getApi().logRemoval(reason, itemFrame.getLocation(), frameMaterial, null);
-                if (itemFrame.getItem().getType() != Material.AIR) {
-                    plugin.getApi().logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
-                }
-            } else if (hanging.getType() == EntityType.PAINTING) {
-                plugin.getApi().logRemoval(reason, hanging.getLocation(), Material.PAINTING, null);
-            }
+            plugin.getApi().logRemoval(reason, hanging.getLocation(), Material.PAINTING, null);
             hanging.remove();
         }
     }
