@@ -20,6 +20,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 
 public class Main extends JavaPlugin {
    private final Cache<Location, String> blockPlaceCache = CacheBuilder.newBuilder()
@@ -37,34 +38,46 @@ public class Main extends JavaPlugin {
 
    @Override
    public void onEnable() {
-      saveDefaultConfig();
-
-      scheduler = UniversalScheduler.getScheduler(this);
-
       new Metrics(this, 26755);
 
-      Plugin depend = Bukkit.getPluginManager().getPlugin("CoreProtect");
-      if (depend instanceof CoreProtect) {
-         CoreProtectAPI coreProtectAPI = ((CoreProtect) depend).getAPI();
-         if (coreProtectAPI.APIVersion() >= 10) {
-            this.api = coreProtectAPI;
-            registerListeners();
-            getLogger().info("Successfully hooked into CoreProtect API v" + coreProtectAPI.APIVersion());
-         } else {
-            getLogger().severe("CoreProtect API version 10 or higher is required. Disabling plugin.");
-            this.getServer().getPluginManager().disablePlugin(this);
-            return;
-         }
-      } else {
-         getLogger().severe("CoreProtect not found. Disabling plugin.");
-         this.getServer().getPluginManager().disablePlugin(this);
+      saveDefaultConfig();
+      scheduler = UniversalScheduler.getScheduler(this);
+
+      if (!setupCoreProtect()) {
          return;
       }
 
+      registerListeners();
       this.updateChecker = new UpdateChecker(this);
       updateChecker.check();
-
       Objects.requireNonNull(getCommand("cptnt")).setExecutor(new UpdateCommand(updateChecker));
+
+      getLogger().info("CoreProtectTNT has been successfully enabled.");
+   }
+
+   private boolean setupCoreProtect() {
+      Plugin depend = Bukkit.getPluginManager().getPlugin("CoreProtect");
+      if (!(depend instanceof CoreProtect)) {
+         getLogger().log(Level.SEVERE, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+         getLogger().log(Level.SEVERE, "CoreProtect not found!");
+         getLogger().log(Level.SEVERE, "CoreProtectTNT will not function without it!");
+         getLogger().log(Level.SEVERE, "Please, download it from: https://github.com/PlayPro/CoreProtect/releases");
+         getLogger().log(Level.SEVERE, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+         return false;
+      }
+
+      CoreProtectAPI coreProtectAPI = ((CoreProtect) depend).getAPI();
+      if (coreProtectAPI.APIVersion() < 9) {
+         getLogger().log(Level.SEVERE, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+         getLogger().log(Level.SEVERE, "Your version of CoreProtect is too old!");
+         getLogger().log(Level.SEVERE, "CoreProtectTNT requires API version 9 or higher.");
+         getLogger().log(Level.SEVERE, "Please update CoreProtect.");
+         getLogger().log(Level.SEVERE, "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+         return false;
+      }
+
+      this.api = coreProtectAPI;
+      return true;
    }
 
    private void registerListeners() {

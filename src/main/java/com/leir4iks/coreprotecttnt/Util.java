@@ -72,6 +72,9 @@ public class Util {
          if (damagerTrack != null) {
             return createChainedCause(damager, damagerTrack);
          } else {
+            if (damager instanceof Player) {
+               return damager.getName();
+            }
             return damager.getType().name().toLowerCase(Locale.ROOT);
          }
       }
