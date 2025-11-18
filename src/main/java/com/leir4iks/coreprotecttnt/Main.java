@@ -1,14 +1,10 @@
 package com.leir4iks.coreprotecttnt;
 
-import com.github.Anon8281.universalScheduler.scheduling.schedulers.TaskScheduler;
 import com.github.Anon8281.universalScheduler.UniversalScheduler;
+import com.github.Anon8281.universalScheduler.scheduling.schedulers.TaskScheduler;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.leir4iks.coreprotecttnt.listeners.ExplosionListener;
-import com.leir4iks.coreprotecttnt.listeners.FireListener;
-import com.leir4iks.coreprotecttnt.listeners.FrameListener;
-import com.leir4iks.coreprotecttnt.listeners.HangingListener;
-import com.leir4iks.coreprotecttnt.listeners.TrackingListener;
+import com.leir4iks.coreprotecttnt.listeners.*;
 import net.coreprotect.CoreProtect;
 import net.coreprotect.CoreProtectAPI;
 import org.bstats.bukkit.Metrics;
@@ -23,7 +19,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public class Main extends JavaPlugin {
-   private final Cache<Location, String> blockPlaceCache = CacheBuilder.newBuilder()
+   public record BlockKey(UUID worldId, int x, int y, int z) {
+      public static BlockKey from(Location loc) {
+         return new BlockKey(loc.getWorld().getUID(), loc.getBlockX(), loc.getBlockY(), loc.getBlockZ());
+      }
+      public static BlockKey from(UUID worldId, int x, int y, int z) {
+         return new BlockKey(worldId, x, y, z);
+      }
+   }
+
+   private final Cache<BlockKey, String> blockPlaceCache = CacheBuilder.newBuilder()
            .expireAfterWrite(6, TimeUnit.HOURS).build();
    private final Cache<UUID, String> entityAggroCache = CacheBuilder.newBuilder()
            .expireAfterWrite(15, TimeUnit.MINUTES).build();
@@ -38,8 +43,6 @@ public class Main extends JavaPlugin {
 
    @Override
    public void onEnable() {
-      new Metrics(this, 26755);
-
       saveDefaultConfig();
       scheduler = UniversalScheduler.getScheduler(this);
 
@@ -51,6 +54,8 @@ public class Main extends JavaPlugin {
       this.updateChecker = new UpdateChecker(this);
       updateChecker.check();
       Objects.requireNonNull(getCommand("cptnt")).setExecutor(new UpdateCommand(updateChecker));
+
+      new Metrics(this, 26755);
 
       getLogger().info("CoreProtectTNT has been successfully enabled.");
    }
@@ -96,7 +101,7 @@ public class Main extends JavaPlugin {
       return scheduler;
    }
 
-   public Cache<Location, String> getBlockPlaceCache() {
+   public Cache<BlockKey, String> getBlockPlaceCache() {
       return blockPlaceCache;
    }
 

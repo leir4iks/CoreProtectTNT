@@ -60,7 +60,9 @@ public class FrameListener implements Listener {
         ItemStack itemBefore = itemFrame.getItem().clone();
         Rotation rotationBefore = itemFrame.getRotation();
 
-        Main.getScheduler().runTask(() -> {
+        Main.getScheduler().runTask(itemFrame.getLocation(), () -> {
+            if (!itemFrame.isValid()) return;
+
             ItemStack itemAfter = itemFrame.getItem();
             Rotation rotationAfter = itemFrame.getRotation();
 

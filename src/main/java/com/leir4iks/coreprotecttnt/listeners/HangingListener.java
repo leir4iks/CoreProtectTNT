@@ -51,7 +51,7 @@ public class HangingListener implements Listener {
         ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "hanging");
         if (!section.getBoolean("enable", true)) return;
         Location hangingLocation = e.getEntity().getLocation().getBlock().getLocation();
-        String reason = this.plugin.getBlockPlaceCache().getIfPresent(hangingLocation);
+        String reason = this.plugin.getBlockPlaceCache().getIfPresent(Main.BlockKey.from(hangingLocation));
         if (reason == null) {
             if (section.getBoolean("disable-unknown")) {
                 e.setCancelled(true);

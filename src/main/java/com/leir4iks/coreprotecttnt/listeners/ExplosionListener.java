@@ -9,9 +9,11 @@ import org.bukkit.block.Block;
 import org.bukkit.block.data.Bisected;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Openable;
+import org.bukkit.block.data.Powerable;
 import org.bukkit.block.data.type.Bed;
 import org.bukkit.block.data.type.Door;
 import org.bukkit.block.data.type.RespawnAnchor;
+import org.bukkit.block.data.type.Switch;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
@@ -21,6 +23,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.PlayerInventory;
@@ -47,21 +50,25 @@ public class ExplosionListener implements Listener {
         this.logger = plugin.getLogger();
     }
 
-    private void toggleOpenable(Block block) {
-        BlockData blockData = block.getBlockData();
-        if (blockData instanceof Openable openable) {
-            openable.setOpen(!openable.isOpen());
-            block.setBlockData(openable, true);
-        }
-    }
-
     private void handleInteractiveExplosion(List<Block> affectedBlocks, String reason, Location center) {
         for (Block block : affectedBlocks) {
+            boolean shouldLog = false;
+            BlockData data = block.getBlockData();
+
             if (Tag.DOORS.isTagged(block.getType()) || Tag.TRAPDOORS.isTagged(block.getType())) {
-                if (block.getBlockData() instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
+                if (data instanceof Door door && door.getHalf() == Bisected.Half.TOP) {
                     continue;
                 }
-                toggleOpenable(block);
+                shouldLog = true;
+            }
+            else if (Tag.BUTTONS.isTagged(block.getType()) ||
+                    block.getType() == Material.LEVER ||
+                    data instanceof Switch ||
+                    data instanceof Powerable) {
+                shouldLog = true;
+            }
+
+            if (shouldLog) {
                 this.plugin.getApi().logInteraction(reason, block.getLocation());
             }
         }
@@ -91,7 +98,12 @@ public class ExplosionListener implements Listener {
 
         if (cause != null) {
             String reason = "#" + mob.getType().name().toLowerCase(Locale.ROOT) + "-" + cause;
-            this.plugin.getApi().logRemoval(reason, e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
+
+            if (e.getTo() == Material.AIR) {
+                this.plugin.getApi().logRemoval(reason, e.getBlock().getLocation(), e.getBlock().getType(), e.getBlock().getBlockData());
+            } else {
+                this.plugin.getApi().logPlacement(reason, e.getBlock().getLocation(), e.getTo(), e.getBlockData());
+            }
         }
     }
 
@@ -127,7 +139,7 @@ public class ExplosionListener implements Listener {
         if (!section.getBoolean("enable", true)) return;
 
         Location location = e.getBlock().getLocation();
-        String initiator = this.plugin.getBlockPlaceCache().getIfPresent(location);
+        String initiator = this.plugin.getBlockPlaceCache().getIfPresent(Main.BlockKey.from(location));
 
         if (initiator == null && section.getBoolean("disable-unknown", false)) {
             e.blockList().clear();
@@ -204,6 +216,33 @@ public class ExplosionListener implements Listener {
         this.plugin.getProjectileCache().invalidate(e.getEntity().getUniqueId());
     }
 
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    public void onProjectileHit(ProjectileHitEvent e) {
+        if (e.getHitBlock() == null) return;
+        if (!(e.getEntity() instanceof WindCharge)) return;
+
+        Block block = e.getHitBlock();
+        BlockData data = block.getBlockData();
+
+        boolean isInteractable = Tag.BUTTONS.isTagged(block.getType()) ||
+                block.getType() == Material.LEVER ||
+                data instanceof Switch ||
+                data instanceof Powerable ||
+                Tag.DOORS.isTagged(block.getType()) ||
+                Tag.TRAPDOORS.isTagged(block.getType());
+
+        if (!isInteractable) return;
+
+        String shooterName = this.plugin.getProjectileCache().getIfPresent(e.getEntity().getUniqueId());
+        if (shooterName == null) return;
+
+        if (plugin.getConfig().getBoolean("debug", false)) {
+            logger.info("[Debug] WindCharge hit interactable block: " + block.getType() + " by " + shooterName);
+        }
+
+        this.plugin.getApi().logInteraction(shooterName, block.getLocation());
+    }
+
     private void handleHangingEntitiesInExplosion(Location center, float yield, String reason) {
         double radius = Math.max(yield, 5.0f);
         Collection<Hanging> hangingEntities = center.getWorld().getNearbyEntities(center, radius, radius, radius, entity -> entity instanceof Hanging && !(entity instanceof ItemFrame)).stream()
@@ -228,9 +267,9 @@ public class ExplosionListener implements Listener {
         if (clickedBlock == null) return;
 
         if (clickedBlock.getBlockData() instanceof Bed) {
-            this.plugin.getBlockPlaceCache().put(clickedBlock.getLocation(), "#bed-" + e.getPlayer().getName());
+            this.plugin.getBlockPlaceCache().put(Main.BlockKey.from(clickedBlock.getLocation()), "#bed-" + e.getPlayer().getName());
         } else if (clickedBlock.getBlockData() instanceof RespawnAnchor) {
-            this.plugin.getBlockPlaceCache().put(clickedBlock.getLocation(), "#respawnanchor-" + e.getPlayer().getName());
+            this.plugin.getBlockPlaceCache().put(Main.BlockKey.from(clickedBlock.getLocation()), "#respawnanchor-" + e.getPlayer().getName());
         }
     }
 

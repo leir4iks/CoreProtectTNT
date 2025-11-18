@@ -2,6 +2,7 @@ package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -18,6 +19,7 @@ import org.bukkit.util.Vector;
 
 import java.util.Comparator;
 import java.util.Locale;
+import java.util.UUID;
 import java.util.logging.Logger;
 
 public class TrackingListener implements Listener {
@@ -47,7 +49,7 @@ public class TrackingListener implements Listener {
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Caching block place at " + event.getBlock().getLocation() + " by " + event.getPlayer().getName());
         }
-        this.plugin.getBlockPlaceCache().put(event.getBlock().getLocation(), event.getPlayer().getName());
+        this.plugin.getBlockPlaceCache().put(Main.BlockKey.from(event.getBlock().getLocation()), event.getPlayer().getName());
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -55,7 +57,7 @@ public class TrackingListener implements Listener {
         if (plugin.getConfig().getBoolean("debug", false)) {
             logger.info("[Debug] Caching block break at " + event.getBlock().getLocation() + " by " + event.getPlayer().getName());
         }
-        this.plugin.getBlockPlaceCache().put(event.getBlock().getLocation(), event.getPlayer().getName());
+        this.plugin.getBlockPlaceCache().put(Main.BlockKey.from(event.getBlock().getLocation()), event.getPlayer().getName());
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
@@ -72,13 +74,13 @@ public class TrackingListener implements Listener {
             String placer = null;
 
             for (Vector vec : WITHER_SKULL_VECTORS) {
-                placer = this.plugin.getBlockPlaceCache().getIfPresent(spawnLoc.clone().add(vec));
+                placer = this.plugin.getBlockPlaceCache().getIfPresent(Main.BlockKey.from(spawnLoc.clone().add(vec)));
                 if (placer != null) break;
             }
 
             if (placer == null) {
                 for (Vector vec : WITHER_BODY_VECTORS) {
-                    placer = this.plugin.getBlockPlaceCache().getIfPresent(spawnLoc.clone().add(vec));
+                    placer = this.plugin.getBlockPlaceCache().getIfPresent(Main.BlockKey.from(spawnLoc.clone().add(vec)));
                     if (placer != null) break;
                 }
             }
@@ -114,7 +116,7 @@ public class TrackingListener implements Listener {
             }
         } else if (shooter instanceof BlockProjectileSource bps) {
             Location loc = bps.getBlock().getLocation();
-            String blockInitiator = this.plugin.getBlockPlaceCache().getIfPresent(loc);
+            String blockInitiator = this.plugin.getBlockPlaceCache().getIfPresent(Main.BlockKey.from(loc));
             if (blockInitiator != null) {
                 finalCause = "#" + projectileName + "-" + blockInitiator;
             } else {
@@ -145,25 +147,30 @@ public class TrackingListener implements Listener {
 
         if (initiator == null) {
             Location blockLocation = tntPrimed.getLocation().getBlock().getLocation();
-            initiator = this.plugin.getBlockPlaceCache().getIfPresent(blockLocation);
+            initiator = this.plugin.getBlockPlaceCache().getIfPresent(Main.BlockKey.from(blockLocation));
         }
 
         if (initiator == null) {
             Location tntLocation = tntPrimed.getLocation();
+            World world = tntLocation.getWorld();
+            int startX = tntLocation.getBlockX();
+            int startY = tntLocation.getBlockY();
+            int startZ = tntLocation.getBlockZ();
+            UUID worldId = world.getUID();
+
+            searchLoop:
             for (int x = -TNT_NEARBY_SOURCE_RADIUS; x <= TNT_NEARBY_SOURCE_RADIUS; x++) {
                 for (int y = -TNT_NEARBY_SOURCE_RADIUS; y <= TNT_NEARBY_SOURCE_RADIUS; y++) {
                     for (int z = -TNT_NEARBY_SOURCE_RADIUS; z <= TNT_NEARBY_SOURCE_RADIUS; z++) {
-                        Location checkLoc = tntLocation.clone().add(x, y, z);
-                        String nearbySource = this.plugin.getBlockPlaceCache().getIfPresent(checkLoc.getBlock().getLocation());
+                        Main.BlockKey key = Main.BlockKey.from(worldId, startX + x, startY + y, startZ + z);
+                        String nearbySource = this.plugin.getBlockPlaceCache().getIfPresent(key);
                         if (nearbySource != null) {
                             initiator = nearbySource;
-                            if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Found nearby source for TNT: " + initiator + " at " + checkLoc);
-                            break;
+                            if (plugin.getConfig().getBoolean("debug", false)) logger.info("[Debug] Found nearby source for TNT: " + initiator + " at " + x + "," + y + "," + z);
+                            break searchLoop;
                         }
                     }
-                    if (initiator != null) break;
                 }
-                if (initiator != null) break;
             }
         }
 

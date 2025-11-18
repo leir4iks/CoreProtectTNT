@@ -114,7 +114,7 @@ public class FireListener implements Listener {
             return ignitingEntity.getType().name().toLowerCase(Locale.ROOT);
         }
         if (ignitingBlock != null) {
-            return this.plugin.getBlockPlaceCache().getIfPresent(ignitingBlock.getLocation());
+            return this.plugin.getBlockPlaceCache().getIfPresent(Main.BlockKey.from(ignitingBlock.getLocation()));
         }
         return null;
     }
