@@ -1,70 +1,103 @@
-# Enable this to see detailed plugin activity in the server console
-# Useful for debugging issues.
-debug: false
+# ----------------------------------------------------------------------
+# CoreProtectTNT configuration
+# ----------------------------------------------------------------------
 
-# Settings for the automatic update checker.
-update-checker:
-  # If true, the plugin will check for new versions on startup.
-  enabled: true
-  # If true, new versions will be automatically downloaded to the 'update' folder
-  # The server needs to be restarted to apply the update
-  auto-download: true
+# General settings for the plugin
+general-settings:
+  # Enable debug mode to see detailed logs in the console (for dev)
+  debug: false
+  # Update checker settings
+  update-checker:
+    enabled: true
+    # Automatically download updates to the "update" folder
+    auto-download: true
 
-# Settings for explosions caused by blocks (e.g., Beds, Respawn Anchors).
-block-explosion:
-  # Set to true to enable logging of block-based explosions.
-  enable: true
-  # If true, the plugin will cancel explosions if it cannot determine the source (player/cause)
-  # This can prevent griefing with untrackable explosion sources.
-  disable-unknown: false
-  # The message sent to nearby players when an unknown explosion is blocked.
-  alert: "&cAn explosion near you was blocked because its source is unknown."
+# Formatting of the logs in CoreProtect
+formatting:
+  # The prefix used before the cause name (e.g., #tnt, $tnt)
+  # You can change this to any symbol or string (e.g., "$", "cookie")
+  log-prefix: "#"
+  # The separator between the cause and the player name (e.g., #tnt-Player)
+  cause-separator: "-"
 
-# Settings for explosions caused by entities (e.g, TNT, Creepers, Fireballs, Wind Charges)
-entity-explosion:
-  # Set to true to enable logging of entity-based explosions.
-  enable: true
-  # If true, the plugin will cancel explosions if it cannot determine the source.
-  disable-unknown: false
-  # The message sent to nearby players when an unknown explosion is blocked.
-  alert: "&cAn explosion near you was blocked because its source is unknown."
+# Module settings to enable or disable specific tracking features
+modules:
+  # Settings for explosions caused by blocks (Bed, Respawn Anchor)
+  block-explosions:
+    enabled: true
+    # Prevent explosion if the source cannot be determined
+    disable-unknown-sources: false
 
-# Settings for fire spread logging.
-fire:
-  # Set to true to enable logging of blocks burned by fire.
-  enable: true
-  # If true, the plugin will stop fire from spreading if it cannot determine the original source.
-  disable-unknown: false
-  # The message sent to nearby players when fire spread is blocked.
-  alert: "&cThe spread of fire was blocked because its source is unknown."
+  # Settings for explosions caused by entities (TNT, Creeper, Wither, etc.)
+  entity-explosions:
+    enabled: true
+    # Prevent explosion if the source cannot be determined
+    disable-unknown-sources: false
 
-# Settings for Item Frame logging.
-itemframe:
-  # Set to true to enable logging of item frame destruction and interactions (placing/removing items).
-  enable: true
-  # If true, the plugin will prevent the destruction of an item frame if the cause is unknown.
-  disable-unknown: false
-  # The message sent to nearby players when an item frame destruction is blocked.
-  alert: "&cThe destruction of an item frame was blocked because its source is unknown."
-  # Log when a player places an item frame.
-  log-placement: true
-  # Log when a player rotates an item in a frame
-  log-rotation: true
-  # Log when a player adds or removes an item from a frame
-  log-content-change: true
-  # Log when a piston breaks an item frame
-  log-piston-destruction: true
-  # Log when water breaks an item frame
-  log-water-destruction: true
-  # Log when an item frame is broken due to the block it was attached to being destroyed
-  log-physics-destruction: true
+  # Settings for fire spread
+  fire:
+    enabled: true
+    # Prevent fire spread if the source cannot be determined
+    disable-unknown-sources: false
 
+  # Settings for Item Frames
+  item-frames:
+    enabled: true
+    disable-unknown-sources: false
+    # Log when a player places an item frame
+    log-placement: true
+    # Log when an item is rotated
+    log-rotation: true
+    # Log when an item is put in or taken out
+    log-content-change: true
+    # Log when a piston breaks a frame
+    log-piston-destruction: true
+    # Log when water breaks a frame
+    log-water-destruction: true
+    # Log when physics (breaking block behind) breaks a frame
+    log-physics-destruction: true
 
-# Settings for other hanging entities (e.g., Paintings)
-hanging:
-  # Set to true to enable logging for the destruction of hanging entities.
-  enable: true
-  # If true, the plugin will prevent the destruction of a hanging entity if the cause is unknown.
-  disable-unknown: false
-  # The message sent to nearby players when a hanging entity destruction is blocked.
-  alert: "&cThe destruction of a hanging entity was blocked because its source is unknown."
+  # Settings for Paintings and other hanging entities
+  hanging:
+    enabled: true
+    disable-unknown-sources: false
+
+# Localization settings
+localization:
+  # Messages sent to players or console
+  messages:
+    prefix: "&6[CoreProtectTNT] &e"
+    update-checking: "Checking for updates..."
+    update-available: "A new version is available!"
+    update-downloaded: "&aUpdate downloaded. Restart to apply."
+    update-failed: "&cUpdate check failed."
+    no-permission: "&cYou do not have permission."
+    unknown-source-alert: "&cAction blocked: Unknown source."
+
+  # Translation of causes in the logs
+  # You can rename 'tnt' to 'dynamite' or anything else here
+  causes:
+    tnt: "tnt"
+    tnt-minecart: "tnt-minecart"
+    creeper: "creeper"
+    ignite-creeper: "ignite-creeper"
+    fireball: "fireball"
+    small-fireball: "small-fireball"
+    dragon-fireball: "dragon-fireball"
+    wind-charge: "wind-charge"
+    breeze-wind-charge: "breeze-wind-charge"
+    wither: "wither"
+    wither-skull: "wither-skull"
+    ender-crystal: "ender-crystal"
+    ender-dragon: "ender-dragon"
+    bed: "bed"
+    respawn-anchor: "respawn-anchor"
+    fire: "fire"
+    water: "water"
+    lava: "lava"
+    piston: "piston"
+    mace: "mace"
+    environment: "environment"
+    dispenser: "dispenser"
+    world: "world"
+    rotate: "rotate"

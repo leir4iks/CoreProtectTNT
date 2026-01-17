@@ -11,7 +11,7 @@
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <revision>3.1.1-SNAPSHOT</revision>
+        <revision>3.1.2-SNAPSHOT</revision>
     </properties>
 
     <repositories>
@@ -39,13 +39,13 @@
         <dependency>
             <groupId>net.coreprotect</groupId>
             <artifactId>coreprotect</artifactId>
-            <version>22.3</version>
+            <version>23.0</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
-            <version>2.10.1</version>
+            <version>2.13.2</version>
             <scope>compile</scope>
         </dependency>
         <dependency>

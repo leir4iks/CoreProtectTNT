@@ -9,7 +9,7 @@
 
 </div>
 
-- A CoreProtect addon allow you log the TNT (or TNTMinecart), Creeper, Fire, Ghast, Bed, Wind charge, Mace and even ItemFrame breaks!
+- A CoreProtect addon allow you log the TNT (or TNTMinecart), Creeper, Fire, Ghast, Bed, Wind charge, Mace, Spear and even ItemFrame breaks!
 
 ### Added:
 - An auto-updater has been added. The plugin automatically checks for new versions and can download them for you. For full control, these options are available in the config:

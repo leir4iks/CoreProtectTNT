@@ -2,12 +2,12 @@ package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
-import org.bukkit.Location;
+import com.leir4iks.coreprotecttnt.config.Config;
 import org.bukkit.Material;
 import org.bukkit.Rotation;
 import org.bukkit.block.Block;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.*;
+import org.bukkit.entity.minecart.ExplosiveMinecart;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -20,10 +20,10 @@ import org.bukkit.event.hanging.HangingBreakEvent;
 import org.bukkit.event.hanging.HangingPlaceEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.projectiles.ProjectileSource;
 
 import java.util.Collection;
 import java.util.Locale;
-import java.util.Optional;
 import java.util.logging.Logger;
 
 public class FrameListener implements Listener {
@@ -38,11 +38,12 @@ public class FrameListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onFramePlace(HangingPlaceEvent e) {
         if (!(e.getEntity() instanceof ItemFrame itemFrame)) return;
+        if (e.getPlayer() == null) return;
 
-        ConfigurationSection section = Util.bakeConfigSection(plugin.getConfig(), "itemframe");
-        if (!section.getBoolean("enable") || !section.getBoolean("log-placement")) return;
+        Config config = plugin.getConfigManager().get();
+        if (!config.modules.itemFrames.enabled || !config.modules.itemFrames.logPlacement) return;
 
-        if (plugin.getConfig().getBoolean("debug")) {
+        if (config.general.debug) {
             logger.info("[Debug] ItemFrame placed at " + itemFrame.getLocation() + " by " + e.getPlayer().getName());
         }
         Material frameMaterial = (itemFrame.getType() == EntityType.GLOW_ITEM_FRAME) ? Material.GLOW_ITEM_FRAME : Material.ITEM_FRAME;
@@ -53,14 +54,19 @@ public class FrameListener implements Listener {
     public void onPlayerInteractFrame(PlayerInteractEntityEvent e) {
         if (!(e.getRightClicked() instanceof ItemFrame itemFrame)) return;
 
-        ConfigurationSection section = Util.bakeConfigSection(plugin.getConfig(), "itemframe");
-        if (!section.getBoolean("enable")) return;
+        Config config = plugin.getConfigManager().get();
+        if (!config.modules.itemFrames.enabled) return;
 
         Player player = e.getPlayer();
         ItemStack itemBefore = itemFrame.getItem().clone();
         Rotation rotationBefore = itemFrame.getRotation();
 
-        Main.getScheduler().runTask(itemFrame.getLocation(), () -> {
+        boolean debug = config.general.debug;
+        if (debug) {
+            logger.info("[Debug] PlayerInteractFrame: Player " + player.getName() + " interacted with frame at " + itemFrame.getLocation());
+        }
+
+        Main.getScheduler().runTask(itemFrame, () -> {
             if (!itemFrame.isValid()) return;
 
             ItemStack itemAfter = itemFrame.getItem();
@@ -69,9 +75,12 @@ public class FrameListener implements Listener {
             boolean itemChanged = !itemBefore.isSimilar(itemAfter);
             boolean onlyRotated = !itemChanged && rotationBefore != rotationAfter;
 
-            if (onlyRotated && section.getBoolean("log-rotation")) {
-                plugin.getApi().logInteraction("#rotate-" + player.getName(), itemFrame.getLocation());
-            } else if (itemChanged && section.getBoolean("log-content-change")) {
+            if (onlyRotated && config.modules.itemFrames.logRotation) {
+                String reason = Util.createChainedCause(plugin, "rotate", player.getName());
+                if (debug) logger.info("[Debug] Frame rotated. Logging interaction: " + reason);
+                plugin.getApi().logInteraction(reason, itemFrame.getLocation());
+            } else if (itemChanged && config.modules.itemFrames.logContentChange) {
+                if (debug) logger.info("[Debug] Frame content changed. Logging container transaction for: " + player.getName());
                 plugin.getApi().logContainerTransaction(player.getName(), itemFrame.getLocation());
             }
         });
@@ -80,55 +89,86 @@ public class FrameListener implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGHEST)
     public void onFrameBreakByEntity(HangingBreakByEntityEvent e) {
         if (!(e.getEntity() instanceof ItemFrame itemFrame)) return;
-        handleFrameRemoval(itemFrame, () -> getRemoverName(e.getRemover()), e);
+
+        if (plugin.getConfigManager().get().general.debug) {
+            logger.info("[Debug] onFrameBreakByEntity triggered. Remover: " + (e.getRemover() != null ? e.getRemover().getType() : "null"));
+        }
+
+        handleFrameRemoval(itemFrame, () -> resolveRemover(e.getRemover()), e);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onFrameBreakNatural(HangingBreakEvent e) {
-        if (!(e.getEntity() instanceof ItemFrame itemFrame) || e.getCause() != HangingBreakEvent.RemoveCause.PHYSICS) return;
-        ConfigurationSection section = Util.bakeConfigSection(plugin.getConfig(), "itemframe");
-        if (!section.getBoolean("log-physics-destruction", true)) return;
-        handleFrameRemoval(itemFrame, () -> "#environment", e);
+        if (!(e.getEntity() instanceof ItemFrame itemFrame)) return;
+        if (e.getCause() == HangingBreakEvent.RemoveCause.EXPLOSION) return;
+
+        if (e.getCause() == HangingBreakEvent.RemoveCause.PHYSICS) {
+            Config config = plugin.getConfigManager().get();
+            if (!config.modules.itemFrames.logPhysicsDestruction) return;
+            handleFrameRemoval(itemFrame, () -> Util.createChainedCause(plugin, "environment", null), e);
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onFrameDamageByProjectile(EntityDamageByEntityEvent e) {
-        if (!(e.getEntity() instanceof ItemFrame itemFrame) || !(e.getDamager() instanceof Projectile projectile)) return;
-        if (plugin.getProcessedEntities().getIfPresent(itemFrame.getUniqueId()) != null) return;
+        if (!(e.getEntity() instanceof ItemFrame itemFrame)) return;
+
+        boolean debug = plugin.getConfigManager().get().general.debug;
+
+        if (debug) {
+            logger.info("[Debug] onFrameDamageByProjectile triggered. Damager: " + e.getDamager().getType());
+        }
+
+        Entity damager = e.getDamager();
+
         if (itemFrame.getItem().getType() == Material.AIR || itemFrame.isDead()) return;
+        if (plugin.getProcessedEntities().getIfPresent(itemFrame.getUniqueId()) != null) return;
 
-        String initiator = plugin.getProjectileCache().getIfPresent(projectile.getUniqueId());
-        if (initiator == null) return;
+        String reason = resolveRemover(damager);
 
-        String reason = initiator.startsWith("#") ? initiator : "#" + initiator;
+        if (debug) {
+            logger.info("[Debug] Resolved reason for item popping: " + reason);
+        }
+
+        if (reason == null) return;
+
         plugin.getApi().logRemoval(reason, itemFrame.getLocation(), itemFrame.getItem().getType(), null);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPistonExtend(BlockPistonExtendEvent e) {
-        ConfigurationSection section = Util.bakeConfigSection(plugin.getConfig(), "itemframe");
-        if (!section.getBoolean("enable") || !section.getBoolean("log-piston-destruction")) return;
+        Config config = plugin.getConfigManager().get();
+        if (!config.modules.itemFrames.enabled || !config.modules.itemFrames.logPistonDestruction) return;
 
+        String cause = getPistonCause(e.getBlock());
         for (Block block : e.getBlocks()) {
-            handleMechanicalFrameBreak(block, "#piston");
+            handleMechanicalFrameBreak(block, cause);
         }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onPistonRetract(BlockPistonRetractEvent e) {
-        ConfigurationSection section = Util.bakeConfigSection(plugin.getConfig(), "itemframe");
-        if (!section.getBoolean("enable") || !section.getBoolean("log-piston-destruction")) return;
+        Config config = plugin.getConfigManager().get();
+        if (!config.modules.itemFrames.enabled || !config.modules.itemFrames.logPistonDestruction) return;
 
+        String cause = getPistonCause(e.getBlock());
         for (Block block : e.getBlocks()) {
-            handleMechanicalFrameBreak(block, "#piston");
+            handleMechanicalFrameBreak(block, cause);
         }
+    }
+
+    private String getPistonCause(Block block) {
+        String pistonPlacer = plugin.getBlockPlaceCache().getIfPresent(Main.BlockKey.from(block.getLocation()));
+        return (pistonPlacer != null)
+                ? Util.createChainedCause(plugin, "piston", pistonPlacer)
+                : Util.createChainedCause(plugin, "piston", null);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     public void onWaterFlow(BlockFromToEvent e) {
-        ConfigurationSection section = Util.bakeConfigSection(plugin.getConfig(), "itemframe");
-        if (!section.getBoolean("enable") || !section.getBoolean("log-water-destruction")) return;
-        handleMechanicalFrameBreak(e.getToBlock(), "#water");
+        Config config = plugin.getConfigManager().get();
+        if (!config.modules.itemFrames.enabled || !config.modules.itemFrames.logWaterDestruction) return;
+        handleMechanicalFrameBreak(e.getToBlock(), Util.createChainedCause(plugin, "water", null));
     }
 
     private void handleMechanicalFrameBreak(Block block, String cause) {
@@ -145,42 +185,102 @@ public class FrameListener implements Listener {
         }
         plugin.getProcessedEntities().put(frame.getUniqueId(), true);
 
-        ConfigurationSection section = Util.bakeConfigSection(plugin.getConfig(), "itemframe");
-        if (!section.getBoolean("enable", true)) return;
+        Config config = plugin.getConfigManager().get();
+        if (!config.modules.itemFrames.enabled) return;
 
         String cause = causeSupplier.get();
 
         if (cause == null) {
-            if (section.getBoolean("disable-unknown")) {
+            if (config.modules.itemFrames.disableUnknown) {
                 if (event != null) event.setCancelled(true);
-                Util.broadcastNearPlayers(frame.getLocation(), section.getString("alert"));
+                Util.broadcastNearPlayers(frame.getLocation(), config.localization.messages.unknownSourceAlert);
             }
             return;
         }
 
-        if (plugin.getConfig().getBoolean("debug")) {
+        if (config.general.debug) {
             logger.info("[Debug] ItemFrame removed at " + frame.getLocation() + " by " + cause);
         }
         logFrameRemoval(frame, cause);
     }
 
-    private String getRemoverName(Entity remover) {
-        return Optional.ofNullable(remover)
-                .map(r -> {
-                    if (r instanceof Player) {
-                        return r.getName();
-                    }
-                    String projectileCause = plugin.getProjectileCache().getIfPresent(r.getUniqueId());
-                    if (projectileCause != null) {
-                        return projectileCause.startsWith("#") ? projectileCause : "#" + projectileCause;
-                    }
-                    String aggroCause = plugin.getEntityAggroCache().getIfPresent(r.getUniqueId());
-                    if (aggroCause != null) {
-                        return Util.createChainedCause(r, aggroCause);
-                    }
-                    return "#" + r.getType().name().toLowerCase(Locale.ROOT);
-                })
-                .orElse(null);
+    private String resolveRemover(Entity entity) {
+        boolean debug = plugin.getConfigManager().get().general.debug;
+
+        if (entity == null) {
+            if (debug) logger.info("[Debug] resolveRemover: Entity is null");
+            return null;
+        }
+
+        if (debug) logger.info("[Debug] resolveRemover: Processing entity " + entity.getType() + " (" + entity.getUniqueId() + ")");
+
+        if (entity instanceof Player p) {
+            String projectileChain = plugin.getPlayerProjectileCache().getIfPresent(p.getUniqueId());
+            if (projectileChain != null) {
+                if (debug) logger.info("[Debug] resolveRemover: Found recent projectile for player: " + projectileChain);
+                return projectileChain;
+            }
+            return p.getName();
+        }
+
+        String separator = plugin.getConfigManager().get().formatting.causeSeparator;
+        String cached = plugin.getProjectileCache().getIfPresent(entity.getUniqueId());
+
+        if (debug) logger.info("[Debug] resolveRemover: Cache lookup result: " + cached);
+
+        if (cached != null) {
+            if (cached.contains(separator)) {
+                String result = Util.addPrefixIfNeeded(plugin, cached);
+                if (debug) logger.info("[Debug] resolveRemover: Returning cached chain: " + result);
+                return result;
+            } else {
+                String result;
+                if (entity instanceof Projectile projectile) {
+                    String projectileName = projectile.getType().name().toLowerCase(Locale.ROOT);
+                    result = Util.createChainedCause(plugin, projectileName, cached);
+                } else if (entity instanceof TNTPrimed) {
+                    result = Util.createChainedCause(plugin, "tnt", cached);
+                } else if (entity instanceof ExplosiveMinecart) {
+                    result = Util.createChainedCause(plugin, "tnt_minecart", cached);
+                } else if (entity instanceof Creeper) {
+                    result = Util.createChainedCause(plugin, "creeper", cached);
+                } else {
+                    result = Util.addPrefixIfNeeded(plugin, cached);
+                }
+
+                if (debug) logger.info("[Debug] resolveRemover: Built chain from cache + entity type: " + result);
+                return result;
+            }
+        }
+
+        if (entity instanceof Projectile projectile) {
+            ProjectileSource shooter = projectile.getShooter();
+            String projectileName = projectile.getType().name().toLowerCase(Locale.ROOT);
+
+            if (debug) logger.info("[Debug] resolveRemover: Cache miss. Checking shooter: " + (shooter != null ? shooter.getClass().getSimpleName() : "null"));
+
+            if (shooter instanceof Player p) {
+                String result = Util.createChainedCause(plugin, projectileName, p.getName());
+                if (debug) logger.info("[Debug] resolveRemover: Built chain from Player shooter: " + result);
+                return result;
+            } else if (shooter instanceof Mob mob) {
+                String aggro = plugin.getEntityAggroCache().getIfPresent(mob.getUniqueId());
+                String result = Util.createChainedCause(plugin, projectileName, Util.createChainedCause(plugin, mob, aggro));
+                if (debug) logger.info("[Debug] resolveRemover: Built chain from Mob shooter. Aggro: " + aggro + " Result: " + result);
+                return result;
+            }
+        }
+
+        String aggro = plugin.getEntityAggroCache().getIfPresent(entity.getUniqueId());
+        if (aggro != null) {
+            String result = Util.createChainedCause(plugin, entity, aggro);
+            if (debug) logger.info("[Debug] resolveRemover: Using aggro cache: " + result);
+            return result;
+        }
+
+        String result = Util.createChainedCause(plugin, entity, null);
+        if (debug) logger.info("[Debug] resolveRemover: Fallback to entity name: " + result);
+        return result;
     }
 
     private void logFrameRemoval(ItemFrame itemFrame, String reason) {

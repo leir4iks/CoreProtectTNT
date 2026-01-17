@@ -2,9 +2,9 @@ package com.leir4iks.coreprotecttnt.listeners;
 
 import com.leir4iks.coreprotecttnt.Main;
 import com.leir4iks.coreprotecttnt.Util;
+import com.leir4iks.coreprotecttnt.config.Config;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Hanging;
@@ -39,27 +39,28 @@ public class HangingListener implements Listener {
         }
 
         if (plugin.getProcessedEntities().getIfPresent(e.getEntity().getUniqueId()) != null) return;
-        if (plugin.getConfig().getBoolean("debug", false)) {
+
+        Config config = plugin.getConfigManager().get();
+        if (config.general.debug) {
             logger.info("[Debug] Event: HangingBreakEvent | Entity: " + e.getEntity().getType() + " | Cause: " + e.getCause());
         }
 
         if (e.getCause() == HangingBreakEvent.RemoveCause.PHYSICS) {
-            logHangingRemoval(e.getEntity(), "#environment");
+            logHangingRemoval(e.getEntity(), Util.createChainedCause(plugin, "environment", null));
             return;
         }
 
-        ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "hanging");
-        if (!section.getBoolean("enable", true)) return;
+        if (!config.modules.hanging.enabled) return;
         Location hangingLocation = e.getEntity().getLocation().getBlock().getLocation();
         String reason = this.plugin.getBlockPlaceCache().getIfPresent(Main.BlockKey.from(hangingLocation));
         if (reason == null) {
-            if (section.getBoolean("disable-unknown")) {
+            if (config.modules.hanging.disableUnknown) {
                 e.setCancelled(true);
-                Util.broadcastNearPlayers(e.getEntity().getLocation(), section.getString("alert"));
+                Util.broadcastNearPlayers(e.getEntity().getLocation(), config.localization.messages.unknownSourceAlert);
             }
             return;
         }
-        String cause = "#" + e.getCause().name().toLowerCase(Locale.ROOT) + "-" + reason;
+        String cause = Util.createChainedCause(plugin, e.getCause().name().toLowerCase(Locale.ROOT), reason);
         logHangingRemoval(e.getEntity(), cause);
     }
 
@@ -75,18 +76,18 @@ public class HangingListener implements Listener {
 
         plugin.getProcessedEntities().put(hanging.getUniqueId(), true);
 
-        if (plugin.getConfig().getBoolean("debug", false)) {
+        Config config = plugin.getConfigManager().get();
+        if (config.general.debug) {
             logger.info("[Debug] Event: HangingBreakByEntityEvent | Entity: " + hanging.getType() + " | Remover: " + (e.getRemover() != null ? e.getRemover().getType() : "null"));
         }
 
-        ConfigurationSection section = Util.bakeConfigSection(this.plugin.getConfig(), "hanging");
-        if (!section.getBoolean("enable", true)) return;
+        if (!config.modules.hanging.enabled) return;
 
         String removerName = getRemoverName(e.getRemover());
         if (removerName == null) {
-            if (section.getBoolean("disable-unknown")) {
+            if (config.modules.hanging.disableUnknown) {
                 e.setCancelled(true);
-                Util.broadcastNearPlayers(hanging.getLocation(), section.getString("alert"));
+                Util.broadcastNearPlayers(hanging.getLocation(), config.localization.messages.unknownSourceAlert);
             }
             return;
         }
@@ -100,15 +101,16 @@ public class HangingListener implements Listener {
                     if (r instanceof Player) {
                         return r.getName();
                     }
+                    String prefix = plugin.getConfigManager().get().formatting.logPrefix;
                     String projectileCause = plugin.getProjectileCache().getIfPresent(r.getUniqueId());
                     if (projectileCause != null) {
-                        return projectileCause.startsWith("#") ? projectileCause : "#" + projectileCause;
+                        return projectileCause.startsWith(prefix) ? projectileCause : prefix + projectileCause;
                     }
                     String aggroCause = plugin.getEntityAggroCache().getIfPresent(r.getUniqueId());
                     if (aggroCause != null) {
-                        return "#" + r.getType().name().toLowerCase(Locale.ROOT) + "-" + aggroCause;
+                        return Util.createChainedCause(plugin, r, aggroCause);
                     }
-                    return "#" + r.getType().name().toLowerCase(Locale.ROOT);
+                    return Util.createChainedCause(plugin, r, null);
                 })
                 .orElse(null);
     }
